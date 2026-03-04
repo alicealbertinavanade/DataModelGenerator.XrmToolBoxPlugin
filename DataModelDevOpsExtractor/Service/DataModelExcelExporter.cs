@@ -3,7 +3,7 @@ using System.Data;
 using System.IO;
 using ClosedXML.Excel;
 
-namespace DataModelDevOpsExtractor
+namespace DataModelDevOpsExtractor.Service
 {
     public static class DataModelExcelExporter
     {

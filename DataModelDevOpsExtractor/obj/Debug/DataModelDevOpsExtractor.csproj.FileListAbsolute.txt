@@ -217,3 +217,4 @@ C:\Users\alice.albertin\source\repos\DataModelGenerator.XrmToolBoxPlugin\DataMod
 C:\Users\alice.albertin\source\repos\DataModelGenerator.XrmToolBoxPlugin\DataModelDevOpsExtractor\bin\Debug\Microsoft.Identity.Client.xml
 C:\Users\alice.albertin\source\repos\DataModelGenerator.XrmToolBoxPlugin\DataModelDevOpsExtractor\bin\Debug\System.Diagnostics.DiagnosticSource.xml
 C:\Users\alice.albertin\source\repos\DataModelGenerator.XrmToolBoxPlugin\DataModelDevOpsExtractor\bin\Debug\System.Formats.Asn1.xml
+C:\Users\alice.albertin\source\repos\DataModelGenerator.XrmToolBoxPlugin\DataModelDevOpsExtractor\obj\Debug\DataModelDevOpsExtractor.PluginControl.resources

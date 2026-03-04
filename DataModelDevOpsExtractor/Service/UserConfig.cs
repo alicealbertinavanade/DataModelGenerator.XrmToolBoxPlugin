@@ -8,8 +8,6 @@ namespace DataModelDevOpsExtractor
 
         private static string DataModelEnvConnPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Avanade.XrmToolbox.DataModelDevOpsExtractor.datamodelenv");
         private static string ConfigPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Avanade.XrmToolbox.DataModelDevOpsExtractor.config");
-        private static string DataModelUriPath => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Avanade.XrmToolbox.DataModelDevOpsExtractor.datamodeluri");
-
         public static void SaveConnectionString(string connStr)
         {
             File.WriteAllText(ConfigPath, connStr ?? "");
@@ -18,11 +16,6 @@ namespace DataModelDevOpsExtractor
         public static void SaveDataModelEnvConnectionString(string connStr)
         {
             File.WriteAllText(DataModelEnvConnPath, connStr ?? "");
-        }
-
-        public static void SaveDataModelUri(string uri)
-        {
-            File.WriteAllText(DataModelUriPath, uri ?? "");
         }
 
         public static string LoadConnectionString()
@@ -38,13 +31,5 @@ namespace DataModelDevOpsExtractor
                 return File.ReadAllText(DataModelEnvConnPath);
             return string.Empty;
         }
-
-        public static string LoadDataModelUri()
-        {
-            if (File.Exists(DataModelUriPath))
-                return File.ReadAllText(DataModelUriPath);
-            return string.Empty;
-        }
-
     }
 }

@@ -24,53 +24,48 @@
             this.txtConnectionString = new System.Windows.Forms.TextBox();
             this.txtTaskIds = new System.Windows.Forms.TextBox();
             this.btnExtract = new System.Windows.Forms.Button();
-            this.btnSave = new System.Windows.Forms.Button();
             this.lblConnectionString = new System.Windows.Forms.Label();
             this.lblTaskIds = new System.Windows.Forms.Label();
+            this.buttonUploadDataModel = new System.Windows.Forms.Button();
+            this.toolStrip1 = new System.Windows.Forms.ToolStrip();
+            this.toolStripBtnSave = new System.Windows.Forms.ToolStripButton();
+            this.toolStripBtnDataModelEnv = new System.Windows.Forms.ToolStripButton();
+            this.toolStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
             // txtConnectionString
             // 
-            this.txtConnectionString.Location = new System.Drawing.Point(213, 15);
-            this.txtConnectionString.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.txtConnectionString.Location = new System.Drawing.Point(212, 38);
+            this.txtConnectionString.Margin = new System.Windows.Forms.Padding(4);
+            this.txtConnectionString.Multiline = true;
             this.txtConnectionString.Name = "txtConnectionString";
-            this.txtConnectionString.Size = new System.Drawing.Size(532, 22);
+            this.txtConnectionString.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
+            this.txtConnectionString.Size = new System.Drawing.Size(531, 60);
             this.txtConnectionString.TabIndex = 1;
             // 
             // txtTaskIds
             // 
-            this.txtTaskIds.Location = new System.Drawing.Point(212, 52);
-            this.txtTaskIds.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.txtTaskIds.Location = new System.Drawing.Point(212, 111);
+            this.txtTaskIds.Margin = new System.Windows.Forms.Padding(4);
             this.txtTaskIds.Name = "txtTaskIds";
             this.txtTaskIds.Size = new System.Drawing.Size(532, 22);
             this.txtTaskIds.TabIndex = 3;
             // 
             // btnExtract
             // 
-            this.btnExtract.Location = new System.Drawing.Point(187, 92);
-            this.btnExtract.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.btnExtract.Location = new System.Drawing.Point(212, 175);
+            this.btnExtract.Margin = new System.Windows.Forms.Padding(4);
             this.btnExtract.Name = "btnExtract";
             this.btnExtract.Size = new System.Drawing.Size(160, 28);
             this.btnExtract.TabIndex = 4;
-            this.btnExtract.Text = "Estrai Data Model";
+            this.btnExtract.Text = "Estrai Data Model CSV";
             this.btnExtract.UseVisualStyleBackColor = true;
-            this.btnExtract.Click += new System.EventHandler(this.btnExtract_Click_1);
-            // 
-            // btnSave
-            // 
-            this.btnSave.Location = new System.Drawing.Point(360, 92);
-            this.btnSave.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
-            this.btnSave.Name = "btnSave";
-            this.btnSave.Size = new System.Drawing.Size(160, 28);
-            this.btnSave.TabIndex = 5;
-            this.btnSave.Text = "Salva Connection";
-            this.btnSave.UseVisualStyleBackColor = true;
-            this.btnSave.Click += new System.EventHandler(this.btnSave_Click_1);
+            this.btnExtract.Click += new System.EventHandler(this.BtnExtract_Click);
             // 
             // lblConnectionString
             // 
             this.lblConnectionString.AutoSize = true;
-            this.lblConnectionString.Location = new System.Drawing.Point(13, 18);
+            this.lblConnectionString.Location = new System.Drawing.Point(13, 41);
             this.lblConnectionString.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.lblConnectionString.Name = "lblConnectionString";
             this.lblConnectionString.Size = new System.Drawing.Size(167, 16);
@@ -80,26 +75,68 @@
             // lblTaskIds
             // 
             this.lblTaskIds.AutoSize = true;
-            this.lblTaskIds.Location = new System.Drawing.Point(13, 55);
+            this.lblTaskIds.Location = new System.Drawing.Point(13, 113);
             this.lblTaskIds.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
             this.lblTaskIds.Name = "lblTaskIds";
             this.lblTaskIds.Size = new System.Drawing.Size(185, 16);
             this.lblTaskIds.TabIndex = 2;
             this.lblTaskIds.Text = "Task IDs (comma separated):";
             // 
+            // buttonUploadDataModel
+            // 
+            this.buttonUploadDataModel.Location = new System.Drawing.Point(391, 175);
+            this.buttonUploadDataModel.Margin = new System.Windows.Forms.Padding(4);
+            this.buttonUploadDataModel.Name = "buttonUploadDataModel";
+            this.buttonUploadDataModel.Size = new System.Drawing.Size(160, 28);
+            this.buttonUploadDataModel.TabIndex = 6;
+            this.buttonUploadDataModel.Text = "Carica Data Model";
+            this.buttonUploadDataModel.UseVisualStyleBackColor = true;
+            this.buttonUploadDataModel.Click += new System.EventHandler(this.buttonUploadDataModel_Click);
+            // 
+            // toolStrip1
+            // 
+            this.toolStrip1.ImageScalingSize = new System.Drawing.Size(20, 20);
+            this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.toolStripBtnSave,
+            this.toolStripBtnDataModelEnv});
+            this.toolStrip1.Location = new System.Drawing.Point(0, 0);
+            this.toolStrip1.Name = "toolStrip1";
+            this.toolStrip1.Size = new System.Drawing.Size(1088, 27);
+            this.toolStrip1.TabIndex = 100;
+            this.toolStrip1.Text = "toolStrip1";
+            // 
+            // toolStripBtnSave
+            // 
+            this.toolStripBtnSave.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.toolStripBtnSave.Name = "toolStripBtnSave";
+            this.toolStripBtnSave.Size = new System.Drawing.Size(149, 24);
+            this.toolStripBtnSave.Text = "Salva Configurazioni";
+            this.toolStripBtnSave.Click += new System.EventHandler(this.BtnSave_Click);
+            // 
+            // toolStripBtnDataModelEnv
+            // 
+            this.toolStripBtnDataModelEnv.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.toolStripBtnDataModelEnv.Name = "toolStripBtnDataModelEnv";
+            this.toolStripBtnDataModelEnv.Size = new System.Drawing.Size(122, 24);
+            this.toolStripBtnDataModelEnv.Text = "Data Model Env:";
+            this.toolStripBtnDataModelEnv.Click += new System.EventHandler(this.ToolStripBtnDataModelEnv_Click);
+            // 
             // PluginControl
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.Controls.Add(this.toolStrip1);
+            this.Controls.Add(this.buttonUploadDataModel);
             this.Controls.Add(this.lblConnectionString);
             this.Controls.Add(this.txtConnectionString);
             this.Controls.Add(this.lblTaskIds);
             this.Controls.Add(this.txtTaskIds);
             this.Controls.Add(this.btnExtract);
-            this.Controls.Add(this.btnSave);
-            this.Margin = new System.Windows.Forms.Padding(4, 4, 4, 4);
+            this.Margin = new System.Windows.Forms.Padding(4);
             this.Name = "PluginControl";
-            this.Size = new System.Drawing.Size(800, 148);
+            this.Size = new System.Drawing.Size(1088, 340);
+            this.toolStrip1.ResumeLayout(false);
+            this.toolStrip1.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -109,6 +146,9 @@
         private System.Windows.Forms.Button btnExtract;
         private System.Windows.Forms.Label lblConnectionString;
         private System.Windows.Forms.Label lblTaskIds;
-        private System.Windows.Forms.Button btnSave;
+        private System.Windows.Forms.ToolStrip toolStrip1;
+        private System.Windows.Forms.ToolStripButton toolStripBtnSave;
+        private System.Windows.Forms.ToolStripButton toolStripBtnDataModelEnv;
+        private System.Windows.Forms.Button buttonUploadDataModel;
     }
 }

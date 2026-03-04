@@ -11,6 +11,9 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using XrmToolBox.Extensibility;
+using DataModelDevOpsExtractor.Service;
+using DataModelDevOpsExtractor.Model;
+using DataModelDevOpsExtractor.Repository;
 
 namespace DataModelDevOpsExtractor
 {
@@ -22,20 +25,34 @@ namespace DataModelDevOpsExtractor
         public new event EventHandler OnRequestConnection;
         public new event EventHandler OnCloseTool;
         public new event EventHandler OnWorkAsync;
+        private string dataModelEnvConnectionString = string.Empty;
 
         public PluginControl()
         {
             InitializeComponent();
-            btnExtract.Click += BtnExtract_Click;
-            btnSave.Click += BtnSave_Click;
-            // Carica la connection string salvata
+            // Carica la connection string e la datamodeluri salvate
             txtConnectionString.Text = UserConfig.LoadConnectionString();
+            // Carica la seconda connessione se presente
+            dataModelEnvConnectionString = UserConfig.LoadDataModelEnvConnectionString();
         }
+        private void ToolStripBtnDataModelEnv_Click(object sender, EventArgs e)
+        {
+            AddAdditionalOrganization();
 
+            if (this.AdditionalConnectionDetails.Count == 0)
+            {
+                return;
+            }
+
+            if (this.AdditionalConnectionDetails != null && this.AdditionalConnectionDetails.Count > 1)
+                this.RemoveAdditionalOrganization(this.AdditionalConnectionDetails[0]);
+
+            toolStripBtnDataModelEnv.Text = $"Data Model Env: {this.AdditionalConnectionDetails[0].ConnectionName}";
+        }
         private void BtnSave_Click(object sender, EventArgs e)
         {
             UserConfig.SaveConnectionString(txtConnectionString.Text.Trim());
-            MessageBox.Show("Connection string salvata.");
+            MessageBox.Show("Connection string e DataModel URI salvate.");
         }
 
         private async void BtnExtract_Click(object sender, EventArgs e)
@@ -43,46 +60,40 @@ namespace DataModelDevOpsExtractor
             btnExtract.Enabled = false;
             try
             {
-                // Parsing input
-                var connStr = txtConnectionString.Text.Trim();
-                var taskIds = txtTaskIds.Text.Split(',');
-                var ids = new List<int>();
-                foreach (var id in taskIds)
-                {
-                    if (int.TryParse(id.Trim(), out int num)) ids.Add(num);
-                }
-                if (ids.Count == 0) { MessageBox.Show("Nessun ID valido."); return; }
-
-                // Parsing connection string (esempio: https://dev.azure.com/org;project;PAT)
-                var parts = connStr.Split(';');
-                if (parts.Length < 3) { MessageBox.Show("Connection string non valida. Usa: https://dev.azure.com/org;project;PAT"); return; }
-                var orgUrl = parts[0];
-                var project = parts[1];
-                var pat = parts[2];
-
-                // Fetch work item descriptions
-                var descriptions = await DevOpsWorkItemFetcher.FetchWorkItemDescriptionsAsync(orgUrl, project, pat, ids);
-
-                // Headers come da CSV allegato
+                var dataModelService = new DataModelService(); 
+                var allRows = await dataModelService.getDataModelRows(
+                    txtConnectionString.Text.Trim(),
+                    txtTaskIds.Text.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                );
+                // Header CSV
                 string[] headers = new[] {
-                    "(Do Not Modify) Column","(Do Not Modify) Row Checksum","(Do Not Modify) Modified On","System (Table) (Table)","Table","Schema name","Display name (IT)","Display name (EN)","Description","Column type","Lookup table","Additional data","Requirement level","Usage","Modified On","Modified By","Comments"
+                    "System","Table","Schema name","Display name (IT)","Display name (EN)","Description","Column type","Lookup table","Additional data","Requirement level"
                 };
-                var allRows = new List<string[]>();
-                foreach (var desc in descriptions)
+
+                // Salva il file CSV nella cartella Data
+                var dataDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data");
+                if (!System.IO.Directory.Exists(dataDir))
+                    System.IO.Directory.CreateDirectory(dataDir);
+                var filePath = System.IO.Path.Combine(dataDir, $"DataModel_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
+
+                using (var writer = new System.IO.StreamWriter(filePath, false, Encoding.UTF8))
                 {
-                    var rows = DevOpsDataModelParser.ParseDataModelSection(desc);
-                    allRows.AddRange(rows);
+                    writer.WriteLine(string.Join(";", headers));
+                    foreach (var row in allRows)
+                    {
+                        var cleaned = row.Select(cell =>
+                            System.Text.RegularExpressions.Regex.Replace(
+                                System.Net.WebUtility.HtmlDecode(cell ?? ""),
+                                "[\u00A0\u200B\u200C\u200D\uFEFF]", // spazi non standard e caratteri invisibili
+                                " "
+                            ).Replace("\n", " ").Replace("\r", " ").Replace(";", ",").Trim()
+                        ).ToArray();
+                        writer.WriteLine(string.Join(";", cleaned));
+                    }
                 }
-                if (allRows.Count == 0) { MessageBox.Show("Nessun data model trovato nei task."); return; }
 
-                // Genera file Excel
-                var downloads = System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile) + "\\Downloads";
-                var filePath = System.IO.Path.Combine(downloads, $"DataModel_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx");
-                DataModelExcelExporter.ExportToExcel(allRows, headers, filePath);
-
-                // Apri cartella
-                System.Diagnostics.Process.Start("explorer.exe", downloads);
-                MessageBox.Show($"File creato: {filePath}");
+                MessageBox.Show($"File CSV creato: {filePath}");
+                System.Diagnostics.Process.Start("explorer.exe", dataDir);
             }
             catch (Exception ex)
             {
@@ -98,21 +109,102 @@ namespace DataModelDevOpsExtractor
         {
             Service = newService;
             ConnectionDetail = detail;
+            base.UpdateConnection(newService, detail, actionName, parameter);
         }
         public override void ClosingPlugin(XrmToolBox.Extensibility.PluginCloseInfo info) { }
+
+        private void btnSave_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                var connStr = txtConnectionString.Text.Trim();
+                var dataDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data");
+                if (!System.IO.Directory.Exists(dataDir))
+                    System.IO.Directory.CreateDirectory(dataDir);
+                var filePath = System.IO.Path.Combine(dataDir, "connection.txt");
+                var uriPath = System.IO.Path.Combine(dataDir, "datamodeluri.txt");
+                System.IO.File.WriteAllText(filePath, connStr);
+                UserConfig.SaveConnectionString(connStr);
+                MessageBox.Show($"Connection string salvata in: {filePath}");
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Errore nel salvataggio: {ex.Message}");
+            }
+        }
         protected override void ConnectionDetailsUpdated(NotifyCollectionChangedEventArgs e)
         {
-            // Implementa la logica necessaria qui, oppure lascia vuoto se non ti serve
+            return;
         }
 
-        private void btnExtract_Click_1(object sender, EventArgs e)
+        private async void buttonUploadDataModel_Click(object sender, EventArgs e)
         {
+            // Usa la seconda connection string (Data Model Env)
+            if (string.IsNullOrWhiteSpace(dataModelEnvConnectionString))
+            {
+                MessageBox.Show("Connection string Data Model Env mancante. Configurala prima dal menu.");
+                return;
+            }
 
-        }
+            var dataModelService = new DataModelService();
+            var allRows = await dataModelService.getDataModelRows(
+                dataModelEnvConnectionString,
+                txtTaskIds.Text.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+            );
 
-        private void btnSave_Click_1(object sender, EventArgs e)
-        {
+            var dataModelCrmService = this.AdditionalConnectionDetails.FirstOrDefault().GetCrmServiceClient();
+            var prefixEnv = this.AdditionalConnectionDetails.FirstOrDefault().ConnectionName.Split('-').FirstOrDefault() ?? "env";
+            var dataModelRepo = new DataModelRepository(dataModelCrmService, prefixEnv);
 
+            foreach (var row in allRows)
+            {
+                // Assumi: row = [System, Table, Schema name, Display name (IT), Display name (EN), Description, Column type, Lookup table, Additional data, Requirement level, Usage]
+                var system = row.ElementAtOrDefault(0)?.Trim();
+                var table = row.ElementAtOrDefault(1)?.Trim();
+                var schemaName = row.ElementAtOrDefault(2)?.Trim();
+                var displayNameIt = row.ElementAtOrDefault(3)?.Trim();
+                var displayNameEn = row.ElementAtOrDefault(4)?.Trim();
+                var description = row.ElementAtOrDefault(5)?.Trim();
+                var columnType = row.ElementAtOrDefault(6)?.Trim();
+                var lookupTable = row.ElementAtOrDefault(7)?.Trim();
+                var additionalData = row.ElementAtOrDefault(8)?.Trim();
+                var requirementLevel = row.ElementAtOrDefault(9)?.Trim();
+                var usage = row.ElementAtOrDefault(10)?.Trim();
+
+                // 1. Verifica/crea tabella egl_table
+                var tableEn = dataModelRepo.GetOrCreateTable(
+                    table, 
+                    system, 
+                    displayNameEn, 
+                    displayNameIt
+                    ); // Implementa GetOrCreateTable
+                if (tableEn == null)
+                {
+                    MessageBox.Show($"Errore nella creazione o recupero della tabella per {table} ({system}). La tabella {table} non sarà creata.");
+                    continue;
+                }
+                
+                // 2. Verifica se la colonna esiste già (per schemaName e tableId)
+                var column = dataModelRepo.GetOrCreateColumn(
+                    schemaName, 
+                    tableEn,
+                    additionalData,
+                    displayNameIt,
+                    displayNameEn,
+                    description,
+                    columnType,
+                    lookupTable,
+                    requirementLevel,
+                    usage);
+                if (column == null)
+                {
+                    MessageBox.Show($"Errore nella creazione o recupero della colonna {schemaName} per {table} ({system}). La colonna {schemaName} non sarà creata.");
+                    continue;
+                }
+
+            }
+
+            MessageBox.Show("Upload completato. Solo le colonne nuove sono state create.");
         }
     }
 }
