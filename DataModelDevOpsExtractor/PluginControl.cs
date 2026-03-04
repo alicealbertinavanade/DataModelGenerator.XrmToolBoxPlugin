@@ -1,12 +1,18 @@
+﻿using McTools.Xrm.Connection;
+using Microsoft.Xrm.Sdk;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 using System.Windows.Forms;
-using Microsoft.Xrm.Sdk;
 using XrmToolBox.Extensibility;
-using McTools.Xrm.Connection;
 
-namespace Avanade.XrmToolbox.DataModelDevOpsExtractor
+namespace DataModelDevOpsExtractor
 {
     public partial class PluginControl : MultipleConnectionsPluginControlBase
     {
@@ -88,7 +94,7 @@ namespace Avanade.XrmToolbox.DataModelDevOpsExtractor
             }
         }
 
-        public override void UpdateConnection(IOrganizationService newService,ConnectionDetail detail, string actionName, object parameter)
+        public override void UpdateConnection(IOrganizationService newService, ConnectionDetail detail, string actionName, object parameter)
         {
             Service = newService;
             ConnectionDetail = detail;
@@ -97,6 +103,16 @@ namespace Avanade.XrmToolbox.DataModelDevOpsExtractor
         protected override void ConnectionDetailsUpdated(NotifyCollectionChangedEventArgs e)
         {
             // Implementa la logica necessaria qui, oppure lascia vuoto se non ti serve
+        }
+
+        private void btnExtract_Click_1(object sender, EventArgs e)
+        {
+
+        }
+
+        private void btnSave_Click_1(object sender, EventArgs e)
+        {
+
         }
     }
 }

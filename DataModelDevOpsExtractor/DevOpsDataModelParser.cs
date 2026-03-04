@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
-namespace Avanade.XrmToolbox.DataModelDevOpsExtractor
+namespace DataModelDevOpsExtractor
 {
     public static class DevOpsDataModelParser
     {

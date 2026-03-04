@@ -3,7 +3,7 @@ using System.Data;
 using System.IO;
 using ClosedXML.Excel;
 
-namespace Avanade.XrmToolbox.DataModelDevOpsExtractor
+namespace DataModelDevOpsExtractor
 {
     public static class DataModelExcelExporter
     {

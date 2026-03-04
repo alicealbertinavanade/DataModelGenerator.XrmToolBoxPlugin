@@ -1,7 +1,7 @@
 using System.IO;
 using System;
 
-namespace Avanade.XrmToolbox.DataModelDevOpsExtractor
+namespace DataModelDevOpsExtractor
 {
     public static class UserConfig
     {

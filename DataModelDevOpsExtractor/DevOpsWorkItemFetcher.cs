@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
-namespace Avanade.XrmToolbox.DataModelDevOpsExtractor
+namespace DataModelDevOpsExtractor
 {
     public static class DevOpsWorkItemFetcher
     {
