@@ -32,8 +32,6 @@ namespace DataModelDevOpsExtractor
             InitializeComponent();
             // Carica la connection string e la datamodeluri salvate
             txtConnectionString.Text = UserConfig.LoadConnectionString();
-            // Carica la seconda connessione se presente
-            dataModelEnvConnectionString = UserConfig.LoadDataModelEnvConnectionString();
         }
         private void ToolStripBtnDataModelEnv_Click(object sender, EventArgs e)
         {
@@ -140,24 +138,33 @@ namespace DataModelDevOpsExtractor
         private async void buttonUploadDataModel_Click(object sender, EventArgs e)
         {
             // Usa la seconda connection string (Data Model Env)
-            if (string.IsNullOrWhiteSpace(dataModelEnvConnectionString))
+            var dataModelEnvConnection = this.AdditionalConnectionDetails;
+            if (dataModelEnvConnection.Count == 0)
             {
                 MessageBox.Show("Connection string Data Model Env mancante. Configurala prima dal menu.");
                 return;
             }
 
+            var dataModelCrmService = dataModelEnvConnection.FirstOrDefault().GetCrmServiceClient();
+            var prefixEnv = dataModelEnvConnection.FirstOrDefault().OrganizationUrlName.Split('-').FirstOrDefault() ?? "env";
+            prefixEnv = prefixEnv + "_";
             var dataModelService = new DataModelService();
-            var allRows = await dataModelService.getDataModelRows(
-                dataModelEnvConnectionString,
+            var allRows = await dataModelService.getDataModelRowsWithTableNames(
+                txtConnectionString.Text.Trim(), 
+                prefixEnv,
                 txtTaskIds.Text.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
             );
+            if (allRows == null || allRows.Count == 0)
+            {
+                MessageBox.Show("Nessun data model trovato nei task selezionati.");
+                return;
+            }
 
-            var dataModelCrmService = this.AdditionalConnectionDetails.FirstOrDefault().GetCrmServiceClient();
-            var prefixEnv = this.AdditionalConnectionDetails.FirstOrDefault().ConnectionName.Split('-').FirstOrDefault() ?? "env";
             var dataModelRepo = new DataModelRepository(dataModelCrmService, prefixEnv);
 
-            foreach (var row in allRows)
+            foreach (var taskRow in allRows)
             {
+                var row = taskRow.Row;
                 // Assumi: row = [System, Table, Schema name, Display name (IT), Display name (EN), Description, Column type, Lookup table, Additional data, Requirement level, Usage]
                 var system = row.ElementAtOrDefault(0)?.Trim();
                 var table = row.ElementAtOrDefault(1)?.Trim();
@@ -170,13 +177,15 @@ namespace DataModelDevOpsExtractor
                 var additionalData = row.ElementAtOrDefault(8)?.Trim();
                 var requirementLevel = row.ElementAtOrDefault(9)?.Trim();
                 var usage = row.ElementAtOrDefault(10)?.Trim();
+                var tableDisplayNameEn = taskRow.TableDisplayNameEn;
+                var tableDisplayNameIt = taskRow.TableDisplayNameIt;
 
                 // 1. Verifica/crea tabella egl_table
                 var tableEn = dataModelRepo.GetOrCreateTable(
                     table, 
                     system, 
-                    displayNameEn, 
-                    displayNameIt
+                    tableDisplayNameEn,
+                    tableDisplayNameIt
                     ); // Implementa GetOrCreateTable
                 if (tableEn == null)
                 {

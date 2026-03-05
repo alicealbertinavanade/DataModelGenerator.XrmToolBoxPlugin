@@ -332,6 +332,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Model\ColumnTypeCode.cs" />
+    <Compile Include="Model\DataModelTaskRow.cs" />
     <Compile Include="Model\RequirementLevelCode.cs" />
     <Compile Include="Model\UsageCode.cs" />
     <Compile Include="Repository\DataModelRepository.cs" />
