@@ -21,124 +21,269 @@
         }
         private void InitializeComponent()
         {
-            this.txtConnectionString = new System.Windows.Forms.TextBox();
-            this.txtTaskIds = new System.Windows.Forms.TextBox();
-            this.btnExtract = new System.Windows.Forms.Button();
-            this.lblConnectionString = new System.Windows.Forms.Label();
-            this.lblTaskIds = new System.Windows.Forms.Label();
-            this.buttonUploadDataModel = new System.Windows.Forms.Button();
-            this.toolStrip1 = new System.Windows.Forms.ToolStrip();
-            this.toolStripBtnSave = new System.Windows.Forms.ToolStripButton();
-            this.toolStripBtnDataModelEnv = new System.Windows.Forms.ToolStripButton();
-            this.toolStrip1.SuspendLayout();
-            this.SuspendLayout();
-            // 
-            // txtConnectionString
-            // 
-            this.txtConnectionString.Location = new System.Drawing.Point(212, 38);
-            this.txtConnectionString.Margin = new System.Windows.Forms.Padding(4);
-            this.txtConnectionString.Multiline = true;
-            this.txtConnectionString.Name = "txtConnectionString";
-            this.txtConnectionString.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.txtConnectionString.Size = new System.Drawing.Size(531, 60);
-            this.txtConnectionString.TabIndex = 1;
-            // 
-            // txtTaskIds
-            // 
-            this.txtTaskIds.Location = new System.Drawing.Point(212, 111);
-            this.txtTaskIds.Margin = new System.Windows.Forms.Padding(4);
-            this.txtTaskIds.Name = "txtTaskIds";
-            this.txtTaskIds.Size = new System.Drawing.Size(532, 22);
-            this.txtTaskIds.TabIndex = 3;
-            // 
-            // btnExtract
-            // 
-            this.btnExtract.Location = new System.Drawing.Point(212, 175);
-            this.btnExtract.Margin = new System.Windows.Forms.Padding(4);
-            this.btnExtract.Name = "btnExtract";
-            this.btnExtract.Size = new System.Drawing.Size(160, 28);
-            this.btnExtract.TabIndex = 4;
-            this.btnExtract.Text = "Estrai Data Model CSV";
-            this.btnExtract.UseVisualStyleBackColor = true;
-            this.btnExtract.Click += new System.EventHandler(this.BtnExtract_Click);
-            // 
-            // lblConnectionString
-            // 
-            this.lblConnectionString.AutoSize = true;
-            this.lblConnectionString.Location = new System.Drawing.Point(13, 41);
-            this.lblConnectionString.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            this.lblConnectionString.Name = "lblConnectionString";
-            this.lblConnectionString.Size = new System.Drawing.Size(167, 16);
-            this.lblConnectionString.TabIndex = 0;
-            this.lblConnectionString.Text = "DevOps Connection String:";
-            // 
-            // lblTaskIds
-            // 
-            this.lblTaskIds.AutoSize = true;
-            this.lblTaskIds.Location = new System.Drawing.Point(13, 113);
-            this.lblTaskIds.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
-            this.lblTaskIds.Name = "lblTaskIds";
-            this.lblTaskIds.Size = new System.Drawing.Size(185, 16);
-            this.lblTaskIds.TabIndex = 2;
-            this.lblTaskIds.Text = "Task IDs (comma separated):";
-            // 
-            // buttonUploadDataModel
-            // 
-            this.buttonUploadDataModel.Location = new System.Drawing.Point(391, 175);
-            this.buttonUploadDataModel.Margin = new System.Windows.Forms.Padding(4);
-            this.buttonUploadDataModel.Name = "buttonUploadDataModel";
-            this.buttonUploadDataModel.Size = new System.Drawing.Size(160, 28);
-            this.buttonUploadDataModel.TabIndex = 6;
-            this.buttonUploadDataModel.Text = "Carica Data Model";
-            this.buttonUploadDataModel.UseVisualStyleBackColor = true;
-            this.buttonUploadDataModel.Click += new System.EventHandler(this.buttonUploadDataModel_Click);
-            // 
-            // toolStrip1
-            // 
-            this.toolStrip1.ImageScalingSize = new System.Drawing.Size(20, 20);
-            this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+			this.txtConnectionString = new System.Windows.Forms.TextBox();
+			this.txtTaskIds = new System.Windows.Forms.TextBox();
+			this.btnExtract = new System.Windows.Forms.Button();
+			this.lblConnectionString = new System.Windows.Forms.Label();
+			this.lblTaskIds = new System.Windows.Forms.Label();
+			this.lblPrefix = new System.Windows.Forms.Label();
+			this.txtPrefix = new System.Windows.Forms.TextBox();
+			this.buttonUploadDataModel = new System.Windows.Forms.Button();
+			this.buttonUploadAmbiente = new System.Windows.Forms.Button();
+			this.buttonLoadMarkdown = new System.Windows.Forms.Button();
+			this.txtMarkdown = new System.Windows.Forms.RichTextBox();
+			this.lblMarkdown = new System.Windows.Forms.Label();
+			this.lblSolutionName = new System.Windows.Forms.Label();
+			this.txtSolutionName = new System.Windows.Forms.TextBox();
+			this.lblUploadSummary = new System.Windows.Forms.Label();
+			this.txtUploadSummary = new System.Windows.Forms.TextBox();
+			this.progressBarUploadAmbiente = new System.Windows.Forms.ProgressBar();
+			this.lblUploadProgress = new System.Windows.Forms.Label();
+			this.toolStrip1 = new System.Windows.Forms.ToolStrip();
+			this.toolStripBtnSave = new System.Windows.Forms.ToolStripButton();
+			this.toolStripBtnDataModelEnv = new System.Windows.Forms.ToolStripButton();
+			this.toolStrip1.SuspendLayout();
+			this.SuspendLayout();
+			// 
+			// txtConnectionString
+			// 
+			this.txtConnectionString.Location = new System.Drawing.Point(212, 38);
+			this.txtConnectionString.Margin = new System.Windows.Forms.Padding(4);
+			this.txtConnectionString.Multiline = true;
+			this.txtConnectionString.Name = "txtConnectionString";
+			this.txtConnectionString.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
+			this.txtConnectionString.Size = new System.Drawing.Size(553, 60);
+			this.txtConnectionString.TabIndex = 1;
+			// 
+			// txtTaskIds
+			// 
+			this.txtTaskIds.Location = new System.Drawing.Point(212, 182);
+			this.txtTaskIds.Margin = new System.Windows.Forms.Padding(4);
+			this.txtTaskIds.Name = "txtTaskIds";
+			this.txtTaskIds.Size = new System.Drawing.Size(553, 22);
+			this.txtTaskIds.TabIndex = 3;
+			// 
+			// btnExtract
+			// 
+			this.btnExtract.Location = new System.Drawing.Point(895, 38);
+			this.btnExtract.Margin = new System.Windows.Forms.Padding(4);
+			this.btnExtract.Name = "btnExtract";
+			this.btnExtract.Size = new System.Drawing.Size(160, 28);
+			this.btnExtract.TabIndex = 6;
+			this.btnExtract.Text = "Estrai Data Model CSV";
+			this.btnExtract.UseVisualStyleBackColor = true;
+			this.btnExtract.Click += new System.EventHandler(this.BtnExtract_Click);
+			// 
+			// lblConnectionString
+			// 
+			this.lblConnectionString.AutoSize = true;
+			this.lblConnectionString.Location = new System.Drawing.Point(13, 41);
+			this.lblConnectionString.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+			this.lblConnectionString.Name = "lblConnectionString";
+			this.lblConnectionString.Size = new System.Drawing.Size(167, 16);
+			this.lblConnectionString.TabIndex = 0;
+			this.lblConnectionString.Text = "DevOps Connection String:";
+			// 
+			// lblTaskIds
+			// 
+			this.lblTaskIds.AutoSize = true;
+			this.lblTaskIds.Location = new System.Drawing.Point(13, 185);
+			this.lblTaskIds.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+			this.lblTaskIds.Name = "lblTaskIds";
+			this.lblTaskIds.Size = new System.Drawing.Size(185, 16);
+			this.lblTaskIds.TabIndex = 2;
+			this.lblTaskIds.Text = "Task IDs (comma separated):";
+			// 
+			// lblPrefix
+			// 
+			this.lblPrefix.AutoSize = true;
+			this.lblPrefix.Location = new System.Drawing.Point(13, 113);
+			this.lblPrefix.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+			this.lblPrefix.Name = "lblPrefix";
+			this.lblPrefix.Size = new System.Drawing.Size(43, 16);
+			this.lblPrefix.TabIndex = 4;
+			this.lblPrefix.Text = "Prefix:";
+			// 
+			// txtPrefix
+			// 
+			this.txtPrefix.Location = new System.Drawing.Point(212, 110);
+			this.txtPrefix.Margin = new System.Windows.Forms.Padding(4);
+			this.txtPrefix.Name = "txtPrefix";
+			this.txtPrefix.Size = new System.Drawing.Size(553, 22);
+			this.txtPrefix.TabIndex = 5;
+			// 
+			// buttonUploadDataModel
+			// 
+			this.buttonUploadDataModel.Location = new System.Drawing.Point(391, 219);
+			this.buttonUploadDataModel.Margin = new System.Windows.Forms.Padding(4);
+			this.buttonUploadDataModel.Name = "buttonUploadDataModel";
+			this.buttonUploadDataModel.Size = new System.Drawing.Size(160, 28);
+			this.buttonUploadDataModel.TabIndex = 10;
+			this.buttonUploadDataModel.Text = "Carica Data Model";
+			this.buttonUploadDataModel.UseVisualStyleBackColor = true;
+			this.buttonUploadDataModel.Click += new System.EventHandler(this.buttonUploadDataModel_Click);
+			// 
+			// buttonUploadAmbiente
+			// 
+			this.buttonUploadAmbiente.Location = new System.Drawing.Point(559, 219);
+			this.buttonUploadAmbiente.Margin = new System.Windows.Forms.Padding(4);
+			this.buttonUploadAmbiente.Name = "buttonUploadAmbiente";
+			this.buttonUploadAmbiente.Size = new System.Drawing.Size(206, 28);
+			this.buttonUploadAmbiente.TabIndex = 11;
+			this.buttonUploadAmbiente.Text = "Carica su Ambiente";
+			this.buttonUploadAmbiente.UseVisualStyleBackColor = true;
+			this.buttonUploadAmbiente.Click += new System.EventHandler(this.buttonUploadAmbiente_Click);
+			// 
+			// buttonLoadMarkdown
+			// 
+			this.buttonLoadMarkdown.Location = new System.Drawing.Point(212, 219);
+			this.buttonLoadMarkdown.Margin = new System.Windows.Forms.Padding(4);
+			this.buttonLoadMarkdown.Name = "buttonLoadMarkdown";
+			this.buttonLoadMarkdown.Size = new System.Drawing.Size(174, 28);
+			this.buttonLoadMarkdown.TabIndex = 9;
+			this.buttonLoadMarkdown.Text = "Load Markdown";
+			this.buttonLoadMarkdown.UseVisualStyleBackColor = true;
+			this.buttonLoadMarkdown.Click += new System.EventHandler(this.buttonLoadMarkdown_Click);
+			// 
+			// txtMarkdown
+			// 
+			this.txtMarkdown.Location = new System.Drawing.Point(16, 278);
+			this.txtMarkdown.Margin = new System.Windows.Forms.Padding(4);
+			this.txtMarkdown.Name = "txtMarkdown";
+			this.txtMarkdown.Size = new System.Drawing.Size(1158, 374);
+			this.txtMarkdown.TabIndex = 12;
+			this.txtMarkdown.Text = "";
+			this.txtMarkdown.WordWrap = false;
+			// 
+			// lblMarkdown
+			// 
+			this.lblMarkdown.AutoSize = true;
+			this.lblMarkdown.Location = new System.Drawing.Point(13, 258);
+			this.lblMarkdown.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+			this.lblMarkdown.Name = "lblMarkdown";
+			this.lblMarkdown.Size = new System.Drawing.Size(145, 16);
+			this.lblMarkdown.TabIndex = 8;
+			this.lblMarkdown.Text = "Data Model Markdown:";
+			// 
+			// lblSolutionName
+			// 
+			this.lblSolutionName.AutoSize = true;
+			this.lblSolutionName.Location = new System.Drawing.Point(13, 150);
+			this.lblSolutionName.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+			this.lblSolutionName.Name = "lblSolutionName";
+			this.lblSolutionName.Size = new System.Drawing.Size(98, 16);
+			this.lblSolutionName.TabIndex = 14;
+			this.lblSolutionName.Text = "Solution Name:";
+			// 
+			// txtSolutionName
+			// 
+			this.txtSolutionName.Location = new System.Drawing.Point(212, 147);
+			this.txtSolutionName.Margin = new System.Windows.Forms.Padding(4);
+			this.txtSolutionName.Name = "txtSolutionName";
+			this.txtSolutionName.Size = new System.Drawing.Size(553, 22);
+			this.txtSolutionName.TabIndex = 7;
+			// 
+			// lblUploadSummary
+			// 
+			this.lblUploadSummary.AutoSize = true;
+			this.lblUploadSummary.Location = new System.Drawing.Point(1282, 258);
+			this.lblUploadSummary.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+			this.lblUploadSummary.Name = "lblUploadSummary";
+			this.lblUploadSummary.Size = new System.Drawing.Size(112, 16);
+			this.lblUploadSummary.TabIndex = 12;
+			this.lblUploadSummary.Text = "Upload Summary";
+			this.lblUploadSummary.Visible = false;
+			// 
+			// txtUploadSummary
+			// 
+			this.txtUploadSummary.Location = new System.Drawing.Point(1222, 278);
+			this.txtUploadSummary.Margin = new System.Windows.Forms.Padding(4);
+			this.txtUploadSummary.Multiline = true;
+			this.txtUploadSummary.Name = "txtUploadSummary";
+			this.txtUploadSummary.ReadOnly = true;
+			this.txtUploadSummary.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
+			this.txtUploadSummary.Size = new System.Drawing.Size(348, 374);
+			this.txtUploadSummary.TabIndex = 13;
+			this.txtUploadSummary.Visible = false;
+			// 
+			// progressBarUploadAmbiente
+			// 
+			this.progressBarUploadAmbiente.Location = new System.Drawing.Point(212, 254);
+			this.progressBarUploadAmbiente.Margin = new System.Windows.Forms.Padding(4);
+			this.progressBarUploadAmbiente.Name = "progressBarUploadAmbiente";
+			this.progressBarUploadAmbiente.Size = new System.Drawing.Size(553, 16);
+			this.progressBarUploadAmbiente.TabIndex = 15;
+			this.progressBarUploadAmbiente.Visible = false;
+			// 
+			// lblUploadProgress
+			// 
+			this.lblUploadProgress.AutoSize = true;
+			this.lblUploadProgress.Location = new System.Drawing.Point(771, 254);
+			this.lblUploadProgress.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
+			this.lblUploadProgress.Name = "lblUploadProgress";
+			this.lblUploadProgress.Size = new System.Drawing.Size(26, 16);
+			this.lblUploadProgress.TabIndex = 16;
+			this.lblUploadProgress.Text = "0%";
+			this.lblUploadProgress.Visible = false;
+			// 
+			// toolStrip1
+			// 
+			this.toolStrip1.ImageScalingSize = new System.Drawing.Size(20, 20);
+			this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.toolStripBtnSave,
             this.toolStripBtnDataModelEnv});
-            this.toolStrip1.Location = new System.Drawing.Point(0, 0);
-            this.toolStrip1.Name = "toolStrip1";
-            this.toolStrip1.Size = new System.Drawing.Size(1088, 27);
-            this.toolStrip1.TabIndex = 100;
-            this.toolStrip1.Text = "toolStrip1";
-            // 
-            // toolStripBtnSave
-            // 
-            this.toolStripBtnSave.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-            this.toolStripBtnSave.Name = "toolStripBtnSave";
-            this.toolStripBtnSave.Size = new System.Drawing.Size(149, 24);
-            this.toolStripBtnSave.Text = "Salva Configurazioni";
-            this.toolStripBtnSave.Click += new System.EventHandler(this.BtnSave_Click);
-            // 
-            // toolStripBtnDataModelEnv
-            // 
-            this.toolStripBtnDataModelEnv.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-            this.toolStripBtnDataModelEnv.Name = "toolStripBtnDataModelEnv";
-            this.toolStripBtnDataModelEnv.Size = new System.Drawing.Size(122, 24);
-            this.toolStripBtnDataModelEnv.Text = "Data Model Env:";
-            this.toolStripBtnDataModelEnv.Click += new System.EventHandler(this.ToolStripBtnDataModelEnv_Click);
-            // 
-            // PluginControl
-            // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.Controls.Add(this.toolStrip1);
-            this.Controls.Add(this.buttonUploadDataModel);
-            this.Controls.Add(this.lblConnectionString);
-            this.Controls.Add(this.txtConnectionString);
-            this.Controls.Add(this.lblTaskIds);
-            this.Controls.Add(this.txtTaskIds);
-            this.Controls.Add(this.btnExtract);
-            this.Margin = new System.Windows.Forms.Padding(4);
-            this.Name = "PluginControl";
-            this.Size = new System.Drawing.Size(1088, 340);
-            this.toolStrip1.ResumeLayout(false);
-            this.toolStrip1.PerformLayout();
-            this.ResumeLayout(false);
-            this.PerformLayout();
+			this.toolStrip1.Location = new System.Drawing.Point(0, 0);
+			this.toolStrip1.Name = "toolStrip1";
+			this.toolStrip1.Size = new System.Drawing.Size(1971, 27);
+			this.toolStrip1.TabIndex = 100;
+			this.toolStrip1.Text = "toolStrip1";
+			// 
+			// toolStripBtnSave
+			// 
+			this.toolStripBtnSave.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+			this.toolStripBtnSave.Name = "toolStripBtnSave";
+			this.toolStripBtnSave.Size = new System.Drawing.Size(149, 24);
+			this.toolStripBtnSave.Text = "Salva Configurazioni";
+			this.toolStripBtnSave.Click += new System.EventHandler(this.BtnSave_Click);
+			// 
+			// toolStripBtnDataModelEnv
+			// 
+			this.toolStripBtnDataModelEnv.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+			this.toolStripBtnDataModelEnv.Name = "toolStripBtnDataModelEnv";
+			this.toolStripBtnDataModelEnv.Size = new System.Drawing.Size(122, 24);
+			this.toolStripBtnDataModelEnv.Text = "Data Model Env:";
+			this.toolStripBtnDataModelEnv.Click += new System.EventHandler(this.ToolStripBtnDataModelEnv_Click);
+			// 
+			// PluginControl
+			// 
+			this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
+			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+			this.Controls.Add(this.lblUploadProgress);
+			this.Controls.Add(this.progressBarUploadAmbiente);
+			this.Controls.Add(this.txtUploadSummary);
+			this.Controls.Add(this.lblUploadSummary);
+			this.Controls.Add(this.txtSolutionName);
+			this.Controls.Add(this.lblSolutionName);
+			this.Controls.Add(this.txtMarkdown);
+			this.Controls.Add(this.lblMarkdown);
+			this.Controls.Add(this.txtPrefix);
+			this.Controls.Add(this.lblPrefix);
+			this.Controls.Add(this.buttonUploadAmbiente);
+			this.Controls.Add(this.buttonLoadMarkdown);
+			this.Controls.Add(this.toolStrip1);
+			this.Controls.Add(this.buttonUploadDataModel);
+			this.Controls.Add(this.lblConnectionString);
+			this.Controls.Add(this.txtConnectionString);
+			this.Controls.Add(this.lblTaskIds);
+			this.Controls.Add(this.txtTaskIds);
+			this.Controls.Add(this.btnExtract);
+			this.Margin = new System.Windows.Forms.Padding(4);
+			this.Name = "PluginControl";
+			this.Size = new System.Drawing.Size(1971, 739);
+			this.toolStrip1.ResumeLayout(false);
+			this.toolStrip1.PerformLayout();
+			this.ResumeLayout(false);
+			this.PerformLayout();
 
         }
         private System.Windows.Forms.TextBox txtConnectionString;
@@ -146,9 +291,21 @@
         private System.Windows.Forms.Button btnExtract;
         private System.Windows.Forms.Label lblConnectionString;
         private System.Windows.Forms.Label lblTaskIds;
+        private System.Windows.Forms.Label lblPrefix;
+        private System.Windows.Forms.TextBox txtPrefix;
         private System.Windows.Forms.ToolStrip toolStrip1;
         private System.Windows.Forms.ToolStripButton toolStripBtnSave;
         private System.Windows.Forms.ToolStripButton toolStripBtnDataModelEnv;
         private System.Windows.Forms.Button buttonUploadDataModel;
+        private System.Windows.Forms.Button buttonUploadAmbiente;
+        private System.Windows.Forms.Button buttonLoadMarkdown;
+        private System.Windows.Forms.RichTextBox txtMarkdown;
+        private System.Windows.Forms.Label lblMarkdown;
+        private System.Windows.Forms.Label lblSolutionName;
+        private System.Windows.Forms.TextBox txtSolutionName;
+        private System.Windows.Forms.Label lblUploadSummary;
+        private System.Windows.Forms.TextBox txtUploadSummary;
+		private System.Windows.Forms.ProgressBar progressBarUploadAmbiente;
+		private System.Windows.Forms.Label lblUploadProgress;
     }
 }

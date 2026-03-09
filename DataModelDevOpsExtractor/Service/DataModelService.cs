@@ -102,7 +102,7 @@ namespace DataModelDevOpsExtractor.Service
                 var tableName = rows.Select(r => r.ElementAtOrDefault(1)).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
                 var tableLabelEn = ExtractTaskName(desc, tableName, prefix, "EN");
                 var tableLabelIt = ExtractTaskName(desc, tableName, prefix, "IT");
-                var fallbackLabel = BuildLabelFromTableName(tableName);
+                var fallbackLabel = BuildLabelFromTableName(tableName, prefix);
 
                 if (string.IsNullOrWhiteSpace(tableLabelEn))
                     tableLabelEn = fallbackLabel;
@@ -130,10 +130,125 @@ namespace DataModelDevOpsExtractor.Service
             return result;
         }
 
+        public async Task<string> getDataModelMarkdown(string connectionString, string prefix, string[] txtTaskIds)
+        {
+            var taskRows = await getDataModelRowsWithTableNames(connectionString, prefix, txtTaskIds);
+            if (taskRows == null || taskRows.Count == 0)
+                return null;
+
+            var sb = new StringBuilder();
+            var grouped = taskRows
+                .Where(r => !string.IsNullOrWhiteSpace(r.TableName))
+                .GroupBy(r => r.TableName);
+
+            foreach (var group in grouped)
+            {
+                var first = group.First();
+                sb.AppendLine($"## Table: {group.Key}");
+                sb.AppendLine($"Name EN : {first.TableDisplayNameEn}");
+                sb.AppendLine($"Name IT : {first.TableDisplayNameIt}");
+                sb.AppendLine("| System | Table | Schema name | Display name (IT) | Display name (EN) | Description | Column type | Lookup table | Additional data | Requirement level | Usage |");
+                sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|");
+
+                foreach (var item in group)
+                {
+                    var row = item.Row ?? new string[0];
+                    var values = new string[11];
+                    for (var index = 0; index < values.Length; index++)
+                    {
+                        var value = row.ElementAtOrDefault(index) ?? string.Empty;
+                        values[index] = value.Replace("|", "\\|").Replace("\r", " ").Replace("\n", " ").Trim();
+                    }
+
+                    sb.AppendLine($"| {string.Join(" | ", values)} |");
+                }
+
+                sb.AppendLine();
+            }
+
+            return sb.ToString().Trim();
+        }
+
+        public List<DataModelTaskRow> ParseDataModelMarkdown(string markdown, string prefix)
+        {
+            var result = new List<DataModelTaskRow>();
+            if (string.IsNullOrWhiteSpace(markdown))
+                return result;
+
+            var lines = markdown.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+            string currentTableName = null;
+            string currentNameEn = null;
+            string currentNameIt = null;
+
+            foreach (var rawLine in lines)
+            {
+                var line = rawLine?.Trim();
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
+
+                if (line.StartsWith("## Table:", StringComparison.OrdinalIgnoreCase))
+                {
+                    currentTableName = line.Substring("## Table:".Length).Trim();
+                    currentNameEn = null;
+                    currentNameIt = null;
+                    continue;
+                }
+
+                if (line.StartsWith("Name EN", StringComparison.OrdinalIgnoreCase))
+                {
+                    currentNameEn = ExtractNameFromMarkdownLine(line);
+                    continue;
+                }
+
+                if (line.StartsWith("Name IT", StringComparison.OrdinalIgnoreCase))
+                {
+                    currentNameIt = ExtractNameFromMarkdownLine(line);
+                    continue;
+                }
+
+                if (!line.StartsWith("|") || line.Replace(" ", "").StartsWith("|---"))
+                    continue;
+
+                var cells = line.Trim('|').Split('|').Select(c => c.Trim().Replace("\\|", "|")).ToArray();
+                if (cells.Length < 10)
+                    continue;
+
+                if (string.Equals(cells.ElementAtOrDefault(0), "System", StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(cells.ElementAtOrDefault(1), "Table", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var row = new string[11];
+                for (var index = 0; index < row.Length; index++)
+                {
+                    row[index] = index < cells.Length ? cells[index] : string.Empty;
+                }
+
+                var tableName = !string.IsNullOrWhiteSpace(currentTableName)
+                    ? currentTableName
+                    : row.ElementAtOrDefault(1);
+
+                var fallbackLabel = BuildLabelFromTableName(tableName, prefix);
+                var nameEn = string.IsNullOrWhiteSpace(currentNameEn) ? fallbackLabel : currentNameEn;
+                var nameIt = string.IsNullOrWhiteSpace(currentNameIt) ? fallbackLabel : currentNameIt;
+
+                result.Add(new DataModelTaskRow
+                {
+                    Row = row,
+                    TableName = tableName,
+                    TableDisplayNameEn = nameEn,
+                    TableDisplayNameIt = nameIt
+                });
+            }
+
+            return result;
+        }
+
         private static string ExtractTaskName(string description, string tableName, string prefix, string language)
         {
             if (string.IsNullOrWhiteSpace(description) || string.IsNullOrWhiteSpace(language))
-                return null;
+                return BuildLabelFromTableName(tableName, prefix);
 
             var htmlPattern = $@"(?is)Name\s*{Regex.Escape(language)}\s*:\s*(.*?)(?:<br\b[^>]*>|</p>|$)";
             var match = Regex.Match(description, htmlPattern);
@@ -147,19 +262,34 @@ namespace DataModelDevOpsExtractor.Service
 
             if (!match.Success)
             {
-                return tableName.Replace(prefix, "");
+                return BuildLabelFromTableName(tableName, prefix);
             }
 
             var value = WebUtility.HtmlDecode(Regex.Replace(match.Groups[1].Value, "<.*?>", " ")).Trim();
-            return string.IsNullOrWhiteSpace(value) ? tableName.Replace(prefix, "") : value;
+            return string.IsNullOrWhiteSpace(value) ? BuildLabelFromTableName(tableName, prefix) : value;
         }
 
-        private static string BuildLabelFromTableName(string tableName)
+        private static string ExtractNameFromMarkdownLine(string line)
+        {
+            var separatorIndex = line.IndexOf(':');
+            if (separatorIndex < 0 || separatorIndex >= line.Length - 1)
+                return string.Empty;
+
+            return line.Substring(separatorIndex + 1).Trim();
+        }
+
+        private static string BuildLabelFromTableName(string tableName, string prefix = null)
         {
             if (string.IsNullOrWhiteSpace(tableName))
                 return string.Empty;
 
             var normalized = tableName.Trim();
+
+            if (!string.IsNullOrWhiteSpace(prefix) && normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                normalized = normalized.Substring(prefix.Length);
+            }
+
             var prefixSeparatorIndex = normalized.IndexOf('_');
             if (prefixSeparatorIndex >= 0 && prefixSeparatorIndex < normalized.Length - 1)
             {

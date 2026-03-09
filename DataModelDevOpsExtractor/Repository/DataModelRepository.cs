@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using static System.IdentityModel.Tokens.SecurityTokenHandlerCollectionManager;
 using System.Windows.Forms;
@@ -32,6 +33,18 @@ namespace DataModelDevOpsExtractor.Repository
             recordQuery.Criteria.AddCondition(prefixEnv + "name", ConditionOperator.Equal, tableName);
             return service.RetrieveMultiple(recordQuery);
         }
+
+        public bool ColumnExists(string columnName, Guid tableId)
+        {
+            var recordQuery = new QueryExpression(prefixEnv + "column");
+            recordQuery.ColumnSet = new ColumnSet(false);
+            recordQuery.NoLock = true;
+            recordQuery.Criteria.AddCondition(prefixEnv + "schemaname", ConditionOperator.Equal, columnName);
+            recordQuery.Criteria.AddCondition(prefixEnv + "tableid", ConditionOperator.Equal, tableId);
+            var results = service.RetrieveMultiple(recordQuery);
+            return results.Entities.Count > 0;
+        }
+
         public Entity GetOrCreateTable(string tableName, string system, string nameEn, string nameIt)
         {
             var results = getTableByName(tableName);
@@ -44,7 +57,7 @@ namespace DataModelDevOpsExtractor.Repository
             {
                 entity = new Entity(prefixEnv + "table");
                 entity[prefixEnv + "name"] = tableName;
-                entity[prefixEnv + "system"] = system;
+                entity[prefixEnv + "systemid"] = system;
                 entity[prefixEnv + "label_en"] = nameEn;
                 entity[prefixEnv + "label_it"] = nameIt;
                 var id = service.Create(entity);
@@ -97,7 +110,8 @@ namespace DataModelDevOpsExtractor.Repository
                 if (Enum.TryParse<RequirementLevelCode>(requiredLevel, true, out var requiredLevelEnum))
                     reqLevelVal = (int)requiredLevelEnum;
                 object usageVal = null;
-                if (Enum.TryParse<UsageCode>(usage, true, out var usageEnum))
+                var normalizedUsage = NormalizeEnumToken(usage);
+                if (Enum.TryParse<UsageCode>(normalizedUsage, true, out var usageEnum))
                     usageVal = (int)usageEnum;
 
                 entity[prefixEnv + "tableid"] = tableEn.ToEntityReference();
@@ -108,13 +122,26 @@ namespace DataModelDevOpsExtractor.Repository
                 entity[prefixEnv + "displayname_en"] = displayNameEn;
                 entity[prefixEnv + "requirementlevelcode"] = new OptionSetValue((int)reqLevelVal);
                 entity[prefixEnv + "description"] = description;
-                entity[prefixEnv + "usagecode"] = new OptionSetValue((int)usageVal);
+                entity[prefixEnv + "usagecode"] = usageVal == null? new OptionSetValue((int)UsageCode.IN_USE) : new OptionSetValue((int)usageVal);
                 
                 var id = service.Create(entity);
                 entity.Id = id;
             }
 
             return entity;
+        }
+
+        private static string NormalizeEnumToken(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            var normalized = value.Trim().ToUpperInvariant();
+            normalized = Regex.Replace(normalized, "[-\\s]+", "_");
+            normalized = Regex.Replace(normalized, "_+", "_");
+            return normalized;
         }
     }
 }

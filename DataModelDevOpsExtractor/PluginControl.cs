@@ -19,6 +19,22 @@ namespace DataModelDevOpsExtractor
 {
     public partial class PluginControl : MultipleConnectionsPluginControlBase
     {
+        private enum UploadResultStatus
+        {
+            Created,
+            Existing,
+            Error
+        }
+
+        private sealed class UploadStatusEntry
+        {
+            public string Kind { get; set; }
+            public string TableName { get; set; }
+            public string ColumnName { get; set; }
+            public UploadResultStatus Status { get; set; }
+            public string ErrorMessage { get; set; }
+        }
+
         // Proprietà richieste da MultipleConnectionsPluginControlBase
         public new IOrganizationService Service { get; set; }
         public new ConnectionDetail ConnectionDetail { get; set; }
@@ -30,11 +46,15 @@ namespace DataModelDevOpsExtractor
         public PluginControl()
         {
             InitializeComponent();
+            HideUploadSummary();
+            ResetUploadProgress();
             // Carica la connection string e la datamodeluri salvate
             txtConnectionString.Text = UserConfig.LoadConnectionString();
+            txtPrefix.Text = UserConfig.LoadPrefix();
         }
         private void ToolStripBtnDataModelEnv_Click(object sender, EventArgs e)
         {
+            HideUploadProgressForOtherAction();
             AddAdditionalOrganization();
 
             if (this.AdditionalConnectionDetails.Count == 0)
@@ -49,12 +69,15 @@ namespace DataModelDevOpsExtractor
         }
         private void BtnSave_Click(object sender, EventArgs e)
         {
+            HideUploadProgressForOtherAction();
             UserConfig.SaveConnectionString(txtConnectionString.Text.Trim());
-            MessageBox.Show("Connection string e DataModel URI salvate.");
+            UserConfig.SavePrefix(txtPrefix.Text.Trim());
+            MessageBox.Show("Configurazioni salvate.");
         }
 
         private async void BtnExtract_Click(object sender, EventArgs e)
         {
+            HideUploadProgressForOtherAction();
             btnExtract.Enabled = false;
             try
             {
@@ -113,9 +136,11 @@ namespace DataModelDevOpsExtractor
 
         private void btnSave_Click(object sender, EventArgs e)
         {
+            HideUploadProgressForOtherAction();
             try
             {
                 var connStr = txtConnectionString.Text.Trim();
+                var prefix = txtPrefix.Text.Trim();
                 var dataDir = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Data");
                 if (!System.IO.Directory.Exists(dataDir))
                     System.IO.Directory.CreateDirectory(dataDir);
@@ -123,6 +148,7 @@ namespace DataModelDevOpsExtractor
                 var uriPath = System.IO.Path.Combine(dataDir, "datamodeluri.txt");
                 System.IO.File.WriteAllText(filePath, connStr);
                 UserConfig.SaveConnectionString(connStr);
+                UserConfig.SavePrefix(prefix);
                 MessageBox.Show($"Connection string salvata in: {filePath}");
             }
             catch (Exception ex)
@@ -137,34 +163,89 @@ namespace DataModelDevOpsExtractor
 
         private async void buttonUploadDataModel_Click(object sender, EventArgs e)
         {
+            HideUploadProgressForOtherAction();
+            HideUploadSummary();
+
             // Usa la seconda connection string (Data Model Env)
             var dataModelEnvConnection = this.AdditionalConnectionDetails;
-            if (dataModelEnvConnection.Count == 0)
+            if (dataModelEnvConnection.FirstOrDefault() == null)
             {
                 MessageBox.Show("Connection string Data Model Env mancante. Configurala prima dal menu.");
                 return;
             }
 
-            var dataModelCrmService = dataModelEnvConnection.FirstOrDefault().GetCrmServiceClient();
-            var prefixEnv = dataModelEnvConnection.FirstOrDefault().OrganizationUrlName.Split('-').FirstOrDefault() ?? "env";
-            prefixEnv = prefixEnv + "_";
-            var dataModelService = new DataModelService();
-            var allRows = await dataModelService.getDataModelRowsWithTableNames(
-                txtConnectionString.Text.Trim(), 
-                prefixEnv,
-                txtTaskIds.Text.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-            );
-            if (allRows == null || allRows.Count == 0)
+            var dataModelCrmService = dataModelEnvConnection.FirstOrDefault()?.GetCrmServiceClient();
+            await UploadDataModelToConnection(dataModelCrmService, "Data Model Env");
+        }
+
+        private async void buttonUploadAmbiente_Click(object sender, EventArgs e)
+        {
+            HideUploadSummary();
+            ResetUploadProgress();
+            buttonUploadAmbiente.Enabled = false;
+            SetUploadProgress(0, "Avvio upload");
+
+            try
             {
-                MessageBox.Show("Nessun data model trovato nei task selezionati.");
+                if (Service == null)
+                {
+                    MessageBox.Show("Connessione Ambiente mancante. Connettiti all'ambiente prima di eseguire l'upload.");
+                    ResetUploadProgress();
+                    return;
+                }
+
+                var completedWithoutErrors = await UploadDataModelToEnvConnection(Service, "Ambiente", txtSolutionName.Text.Trim());
+                if (!completedWithoutErrors)
+                {
+                    ResetUploadProgress();
+                }
+            }
+            catch (Exception ex)
+            {
+                ResetUploadProgress();
+                MessageBox.Show($"Errore durante l'upload su Ambiente: {ex.Message}");
+            }
+            finally
+            {
+                buttonUploadAmbiente.Enabled = true;
+            }
+        }
+
+        private async Task UploadDataModelToConnection(IOrganizationService targetService, string targetName)
+        {
+            if (targetService == null)
+            {
+                MessageBox.Show($"Connessione target non disponibile: {targetName}.");
                 return;
             }
 
-            var dataModelRepo = new DataModelRepository(dataModelCrmService, prefixEnv);
+            var prefixEnv = NormalizePrefix(txtPrefix.Text);
+            if (string.IsNullOrWhiteSpace(prefixEnv))
+            {
+                MessageBox.Show("Prefix mancante. Inserisci il prefix e salva le configurazioni.");
+                return;
+            }
+
+            var dataModelService = new DataModelService();
+            var allRows = dataModelService.ParseDataModelMarkdown(txtMarkdown.Text, prefixEnv);
+            if (allRows == null || allRows.Count == 0)
+            {
+                MessageBox.Show("Markdown vuoto o non valido. Premi Load Markdown e verifica il contenuto prima di caricare.");
+                return;
+            }
+
+            var dataModelRepo = new DataModelRepository(targetService, prefixEnv);
+            var statusEntries = new List<UploadStatusEntry>();
+            var trackedTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var taskRow in allRows)
             {
                 var row = taskRow.Row;
+                if (row == null)
+                {
+                    continue;
+                }
+
                 // Assumi: row = [System, Table, Schema name, Display name (IT), Display name (EN), Description, Column type, Lookup table, Additional data, Requirement level, Usage]
                 var system = row.ElementAtOrDefault(0)?.Trim();
                 var table = row.ElementAtOrDefault(1)?.Trim();
@@ -180,40 +261,519 @@ namespace DataModelDevOpsExtractor
                 var tableDisplayNameEn = taskRow.TableDisplayNameEn;
                 var tableDisplayNameIt = taskRow.TableDisplayNameIt;
 
-                // 1. Verifica/crea tabella egl_table
-                var tableEn = dataModelRepo.GetOrCreateTable(
-                    table, 
-                    system, 
-                    tableDisplayNameEn,
-                    tableDisplayNameIt
-                    ); // Implementa GetOrCreateTable
-                if (tableEn == null)
+                if (string.IsNullOrWhiteSpace(table) || string.IsNullOrWhiteSpace(schemaName))
                 {
-                    MessageBox.Show($"Errore nella creazione o recupero della tabella per {table} ({system}). La tabella {table} non sarà creata.");
+                    statusEntries.Add(new UploadStatusEntry
+                    {
+                        Kind = "Column",
+                        TableName = table,
+                        ColumnName = schemaName,
+                        Status = UploadResultStatus.Error,
+                        ErrorMessage = "Table o Schema name mancante nel markdown"
+                    });
                     continue;
                 }
-                
-                // 2. Verifica se la colonna esiste già (per schemaName e tableId)
-                var column = dataModelRepo.GetOrCreateColumn(
-                    schemaName, 
-                    tableEn,
-                    additionalData,
-                    displayNameIt,
-                    displayNameEn,
-                    description,
-                    columnType,
-                    lookupTable,
-                    requirementLevel,
-                    usage);
-                if (column == null)
+
+                Entity tableEn = null;
+                try
                 {
-                    MessageBox.Show($"Errore nella creazione o recupero della colonna {schemaName} per {table} ({system}). La colonna {schemaName} non sarà creata.");
+                    var tableAlreadyExists = dataModelRepo.getTableByName(table).Entities.Any();
+
+                    tableEn = dataModelRepo.GetOrCreateTable(
+                        table,
+                        system,
+                        tableDisplayNameEn,
+                        tableDisplayNameIt
+                    );
+
+                    if (!trackedTables.Contains(table))
+                    {
+                        statusEntries.Add(new UploadStatusEntry
+                        {
+                            Kind = "Table",
+                            TableName = table,
+                            Status = tableAlreadyExists ? UploadResultStatus.Existing : UploadResultStatus.Created
+                        });
+                        trackedTables.Add(table);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    if (!trackedTables.Contains(table))
+                    {
+                        statusEntries.Add(new UploadStatusEntry
+                        {
+                            Kind = "Table",
+                            TableName = table,
+                            Status = UploadResultStatus.Error,
+                            ErrorMessage = ex.Message
+                        });
+                        trackedTables.Add(table);
+                    }
+
+                    statusEntries.Add(new UploadStatusEntry
+                    {
+                        Kind = "Column",
+                        TableName = table,
+                        ColumnName = schemaName,
+                        Status = UploadResultStatus.Error,
+                        ErrorMessage = $"Tabella non disponibile: {ex.Message}"
+                    });
                     continue;
+                }
+
+                if (tableEn == null)
+                {
+                    statusEntries.Add(new UploadStatusEntry
+                    {
+                        Kind = "Column",
+                        TableName = table,
+                        ColumnName = schemaName,
+                        Status = UploadResultStatus.Error,
+                        ErrorMessage = "Tabella non creata o non trovata"
+                    });
+                    continue;
+                }
+
+                try
+                {
+                    var columnAlreadyExists = dataModelRepo.ColumnExists(schemaName, tableEn.Id);
+
+                    var column = dataModelRepo.GetOrCreateColumn(
+                        schemaName,
+                        tableEn,
+                        additionalData,
+                        displayNameIt,
+                        displayNameEn,
+                        description,
+                        columnType,
+                        lookupTable,
+                        requirementLevel,
+                        usage);
+
+                    statusEntries.Add(new UploadStatusEntry
+                    {
+                        Kind = "Column",
+                        TableName = table,
+                        ColumnName = schemaName,
+                        Status = column != null
+                            ? (columnAlreadyExists ? UploadResultStatus.Existing : UploadResultStatus.Created)
+                            : UploadResultStatus.Error,
+                        ErrorMessage = column == null ? "GetOrCreateColumn ha restituito null" : null
+                    });
+                }
+                catch (Exception ex)
+                {
+                    statusEntries.Add(new UploadStatusEntry
+                    {
+                        Kind = "Column",
+                        TableName = table,
+                        ColumnName = schemaName,
+                        Status = UploadResultStatus.Error,
+                        ErrorMessage = ex.Message
+                    });
                 }
 
             }
 
-            MessageBox.Show("Upload completato. Solo le colonne nuove sono state create.");
+            ShowUploadSummary(statusEntries);
+            MessageBox.Show($"Upload completato su {targetName}. Riepilogo disponibile nel pannello laterale.");
+        }
+
+        private async Task<bool> UploadDataModelToEnvConnection(IOrganizationService targetService, string targetName, string solutionName)
+        {
+            if (targetService == null)
+            {
+                MessageBox.Show($"Connessione target non disponibile: {targetName}.");
+                return false;
+            }
+
+            var prefixEnv = NormalizePrefix(txtPrefix.Text);
+            if (string.IsNullOrWhiteSpace(prefixEnv))
+            {
+                MessageBox.Show("Prefix mancante. Inserisci il prefix e salva le configurazioni.");
+                return false;
+            }
+
+            var dataModelService = new DataModelService();
+            var allRows = dataModelService.ParseDataModelMarkdown(txtMarkdown.Text, prefixEnv);
+            if (allRows == null || allRows.Count == 0)
+            {
+                MessageBox.Show("Markdown vuoto o non valido. Premi Load Markdown e verifica il contenuto prima di caricare.");
+                return false;
+            }
+
+            SetUploadProgress(5, "Validazione dati");
+            var envRepo = new EnvironmentRepository(targetService, prefixEnv);
+            if (!string.IsNullOrWhiteSpace(solutionName) && !envRepo.SolutionExists(solutionName))
+            {
+                MessageBox.Show($"La solution '{solutionName}' non esiste nell'ambiente target.");
+                return false;
+            }
+
+            var statusEntries = new List<UploadStatusEntry>();
+            var trackedTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var totalRows = allRows.Count;
+
+            SetUploadProgress(10, $"Elaborazione 0/{totalRows}");
+
+            for (var rowIndex = 0; rowIndex < totalRows; rowIndex++)
+            {
+                var taskRow = allRows[rowIndex];
+                var row = taskRow.Row;
+                if (row == null)
+                {
+                    UpdateProgressFromRow(rowIndex + 1, totalRows);
+                    continue;
+                }
+
+                // Assumi: row = [System, Table, Schema name, Display name (IT), Display name (EN), Description, Column type, Lookup table, Additional data, Requirement level, Usage]
+                var system = row.ElementAtOrDefault(0)?.Trim();
+                var table = row.ElementAtOrDefault(1)?.Trim();
+                var schemaName = row.ElementAtOrDefault(2)?.Trim();
+                var displayNameIt = row.ElementAtOrDefault(3)?.Trim();
+                var displayNameEn = row.ElementAtOrDefault(4)?.Trim();
+                var description = row.ElementAtOrDefault(5)?.Trim();
+                var columnType = row.ElementAtOrDefault(6)?.Trim();
+                var lookupTable = row.ElementAtOrDefault(7)?.Trim();
+                var additionalData = row.ElementAtOrDefault(8)?.Trim();
+                var requirementLevel = row.ElementAtOrDefault(9)?.Trim();
+                var usage = row.ElementAtOrDefault(10)?.Trim();
+                var tableDisplayNameEn = taskRow.TableDisplayNameEn;
+                var tableDisplayNameIt = taskRow.TableDisplayNameIt;
+
+                if (string.IsNullOrWhiteSpace(table) || string.IsNullOrWhiteSpace(schemaName))
+                {
+                    statusEntries.Add(new UploadStatusEntry
+                    {
+                        Kind = "Column",
+                        TableName = table,
+                        ColumnName = schemaName,
+                        Status = UploadResultStatus.Error,
+                        ErrorMessage = "Table o Schema name mancante nel markdown"
+                    });
+                    UpdateProgressFromRow(rowIndex + 1, totalRows);
+                    continue;
+                }
+
+                try
+                {
+                    var tableAlreadyExists = envRepo.TableExists(table);
+                    if(!tableAlreadyExists)
+                    {
+                        envRepo.CreateTable(
+                            table,
+                            system,
+                            tableDisplayNameEn,
+                            tableDisplayNameIt
+                        );
+
+                        if (!string.IsNullOrWhiteSpace(solutionName))
+                        {
+                            envRepo.AddTableToSolution(solutionName, table);
+                        }
+                    }
+
+                    if (!trackedTables.Contains(table))
+                    {
+                        statusEntries.Add(new UploadStatusEntry
+                        {
+                            Kind = "Table",
+                            TableName = table,
+                            Status = tableAlreadyExists ? UploadResultStatus.Existing : UploadResultStatus.Created
+                        });
+                        trackedTables.Add(table);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    if (!trackedTables.Contains(table))
+                    {
+                        statusEntries.Add(new UploadStatusEntry
+                        {
+                            Kind = "Table",
+                            TableName = table,
+                            Status = UploadResultStatus.Error,
+                            ErrorMessage = ex.Message
+                        });
+                        trackedTables.Add(table);
+                    }
+
+                    statusEntries.Add(new UploadStatusEntry
+                    {
+                        Kind = "Column",
+                        TableName = table,
+                        ColumnName = schemaName,
+                        Status = UploadResultStatus.Error,
+                        ErrorMessage = $"Tabella non disponibile: {ex.Message}"
+                    });
+                    UpdateProgressFromRow(rowIndex + 1, totalRows);
+                    continue;
+                }
+
+                try
+                {
+                    var columnAlreadyExists = envRepo.ColumnExists(schemaName, table);
+
+                    var column = envRepo.GetOrCreateColumn(
+                        schemaName,
+                        table,
+                        additionalData,
+                        displayNameIt,
+                        displayNameEn,
+                        description,
+                        columnType,
+                        lookupTable,
+                        requirementLevel,
+                        usage);
+
+                    if (!columnAlreadyExists && !string.IsNullOrWhiteSpace(solutionName))
+                    {
+                        envRepo.AddColumnToSolution(solutionName, table, schemaName);
+                    }
+
+                    statusEntries.Add(new UploadStatusEntry
+                    {
+                        Kind = "Column",
+                        TableName = table,
+                        ColumnName = schemaName,
+                        Status = column != null
+                            ? (columnAlreadyExists ? UploadResultStatus.Existing : UploadResultStatus.Created)
+                            : UploadResultStatus.Error,
+                        ErrorMessage = column == null ? "GetOrCreateColumn ha restituito null" : null
+                    });
+                }
+                catch (Exception ex)
+                {
+                    statusEntries.Add(new UploadStatusEntry
+                    {
+                        Kind = "Column",
+                        TableName = table,
+                        ColumnName = schemaName,
+                        Status = UploadResultStatus.Error,
+                        ErrorMessage = ex.Message
+                    });
+                }
+
+                UpdateProgressFromRow(rowIndex + 1, totalRows);
+            }
+
+            SetUploadProgress(98, "Generazione riepilogo");
+            ShowUploadSummary(statusEntries);
+
+            var hasErrors = statusEntries.Any(s => s.Status == UploadResultStatus.Error);
+            if (hasErrors)
+            {
+                MessageBox.Show($"Upload su {targetName} completato con errori. Controlla il riepilogo nel pannello laterale.");
+                return false;
+            }
+
+            SetUploadProgress(100, "Completato");
+            MessageBox.Show($"Upload completato su {targetName}. Riepilogo disponibile nel pannello laterale.");
+            return true;
+        }
+
+        private void ResetUploadProgress()
+        {
+            if (progressBarUploadAmbiente == null || lblUploadProgress == null)
+            {
+                return;
+            }
+
+            progressBarUploadAmbiente.Visible = false;
+            lblUploadProgress.Visible = false;
+            progressBarUploadAmbiente.Minimum = 0;
+            progressBarUploadAmbiente.Maximum = 100;
+            progressBarUploadAmbiente.Value = 0;
+            lblUploadProgress.Text = "0%";
+        }
+
+        private void HideUploadProgressForOtherAction()
+        {
+            // Se parte un'altra azione, il loader di "Carica su Ambiente" viene nascosto.
+            ResetUploadProgress();
+        }
+
+        private void SetUploadProgress(int percentage, string step)
+        {
+            if (progressBarUploadAmbiente == null || lblUploadProgress == null)
+            {
+                return;
+            }
+
+            var safePercentage = Math.Max(0, Math.Min(100, percentage));
+            progressBarUploadAmbiente.Visible = true;
+            lblUploadProgress.Visible = true;
+            progressBarUploadAmbiente.Value = safePercentage;
+            lblUploadProgress.Text = string.IsNullOrWhiteSpace(step)
+                ? $"{safePercentage}%"
+                : $"{safePercentage}% - {step}";
+
+            progressBarUploadAmbiente.Refresh();
+            lblUploadProgress.Refresh();
+        }
+
+        private void UpdateProgressFromRow(int currentRow, int totalRows)
+        {
+            if (totalRows <= 0)
+            {
+                SetUploadProgress(95, "Elaborazione");
+                return;
+            }
+
+            // 10-95% riservato all'elaborazione delle righe del markdown.
+            var percentage = 10 + (int)Math.Round((currentRow / (double)totalRows) * 85d);
+            SetUploadProgress(percentage, $"Elaborazione {currentRow}/{totalRows}");
+        }
+
+        private static string BuildUploadSummaryText(List<UploadStatusEntry> statuses)
+        {
+            statuses = statuses ?? new List<UploadStatusEntry>();
+
+            var createdCount = statuses.Count(s => s.Status == UploadResultStatus.Created);
+            var existingCount = statuses.Count(s => s.Status == UploadResultStatus.Existing);
+            var errorCount = statuses.Count(s => s.Status == UploadResultStatus.Error);
+
+            var lines = new List<string>
+            {
+                "Upload Summary",
+                $"Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss}",
+                "",
+                $"Created: {createdCount}",
+                $"Existing: {existingCount}",
+                $"Error: {errorCount}",
+                "",
+                "Tables"
+            };
+
+            var tableItems = statuses
+                .Where(s => string.Equals(s.Kind, "Table", StringComparison.OrdinalIgnoreCase))
+                .GroupBy(s => s.TableName ?? string.Empty)
+                .Select(g => g.Last())
+                .OrderBy(s => s.TableName)
+                .ToList();
+
+            if (tableItems.Count == 0)
+            {
+                lines.Add("- [INFO] Nessuna tabella elaborata");
+            }
+            else
+            {
+                foreach (var item in tableItems)
+                {
+                    lines.Add($"- [{GetStatusLabel(item.Status)}] {item.TableName}{FormatError(item.ErrorMessage)}");
+                }
+            }
+
+            lines.Add(string.Empty);
+            lines.Add("Columns");
+
+            var columnItems = statuses
+                .Where(s => string.Equals(s.Kind, "Column", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(s => s.TableName)
+                .ThenBy(s => s.ColumnName)
+                .ToList();
+
+            if (columnItems.Count == 0)
+            {
+                lines.Add("- [INFO] Nessuna colonna elaborata");
+            }
+            else
+            {
+                foreach (var item in columnItems)
+                {
+                    lines.Add($"- [{GetStatusLabel(item.Status)}] {item.TableName}.{item.ColumnName}{FormatError(item.ErrorMessage)}");
+                }
+            }
+
+            return string.Join(Environment.NewLine, lines).Trim();
+        }
+
+        private static string GetStatusLabel(UploadResultStatus status)
+        {
+            switch (status)
+            {
+                case UploadResultStatus.Created:
+                    return "CREATED";
+                case UploadResultStatus.Existing:
+                    return "EXISTING";
+                default:
+                    return "ERROR";
+            }
+        }
+
+        private static string FormatError(string error)
+        {
+            return string.IsNullOrWhiteSpace(error) ? string.Empty : $" — {error}";
+        }
+
+        private void ShowUploadSummary(List<UploadStatusEntry> statuses)
+        {
+            txtUploadSummary.Text = BuildUploadSummaryText(statuses);
+            txtUploadSummary.Visible = true;
+            lblUploadSummary.Visible = true;
+        }
+
+        private void HideUploadSummary()
+        {
+            if (txtUploadSummary == null || lblUploadSummary == null)
+            {
+                return;
+            }
+
+            txtUploadSummary.Text = string.Empty;
+            txtUploadSummary.Visible = false;
+            lblUploadSummary.Visible = false;
+        }
+
+        private async void buttonLoadMarkdown_Click(object sender, EventArgs e)
+        {
+            HideUploadProgressForOtherAction();
+            HideUploadSummary();
+            buttonLoadMarkdown.Enabled = false;
+            try
+            {
+                var prefixEnv = NormalizePrefix(txtPrefix.Text);
+                if (string.IsNullOrWhiteSpace(prefixEnv))
+                {
+                    MessageBox.Show("Prefix mancante. Inserisci il prefix e salva le configurazioni.");
+                    return;
+                }
+
+                var dataModelService = new DataModelService();
+                var markdown = await dataModelService.getDataModelMarkdown(
+                    txtConnectionString.Text.Trim(),
+                    prefixEnv,
+                    txtTaskIds.Text.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                );
+
+                if (string.IsNullOrWhiteSpace(markdown))
+                {
+                    MessageBox.Show("Nessun contenuto trovato dai task indicati.");
+                    return;
+                }
+
+                txtMarkdown.Text = markdown;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Errore nel caricamento markdown: {ex.Message}");
+            }
+            finally
+            {
+                buttonLoadMarkdown.Enabled = true;
+            }
+        }
+
+        private static string NormalizePrefix(string prefix)
+        {
+            var value = (prefix ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            return value.EndsWith("_", StringComparison.Ordinal) ? value : value + "_";
         }
     }
 }

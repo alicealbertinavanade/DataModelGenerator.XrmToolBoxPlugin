@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Net;
 using System.Text.RegularExpressions;
 
 namespace DataModelDevOpsExtractor.Service
@@ -25,7 +26,11 @@ namespace DataModelDevOpsExtractor.Service
                 foreach (Match cell in cellMatches)
                 {
                     // Rimuovi eventuali tag HTML interni e trimma
-                    var cellText = Regex.Replace(cell.Groups[1].Value, "<.*?>", string.Empty).Trim();
+                    var cellText = Regex.Replace(cell.Groups[1].Value, "<.*?>", string.Empty);
+                    cellText = WebUtility.HtmlDecode(cellText ?? string.Empty);
+                    cellText = Regex.Replace(cellText, "[\u00A0\u200B\u200C\u200D\uFEFF]", " ");
+                    cellText = Regex.Replace(cellText, @"[^\p{L}\p{N}\s\-_/().,:;\[\]]", string.Empty);
+                    cellText = Regex.Replace(cellText, @"\s+", " ").Trim();
                     cells.Add(cellText);
                 }
                 if (cells.Count > 0)

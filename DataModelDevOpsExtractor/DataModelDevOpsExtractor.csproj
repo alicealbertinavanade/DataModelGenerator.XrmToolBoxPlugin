@@ -336,6 +336,7 @@
     <Compile Include="Model\RequirementLevelCode.cs" />
     <Compile Include="Model\UsageCode.cs" />
     <Compile Include="Repository\DataModelRepository.cs" />
+    <Compile Include="Repository\EnvironmentRepository.cs" />
     <Compile Include="Service\DataModelExcelExporter.cs" />
     <Compile Include="Service\DataModelService.cs" />
     <Compile Include="Service\DevOpsDataModelParser.cs" />
