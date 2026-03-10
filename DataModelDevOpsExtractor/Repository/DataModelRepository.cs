@@ -7,7 +7,6 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using static System.IdentityModel.Tokens.SecurityTokenHandlerCollectionManager;
 using System.Windows.Forms;
 using DocumentFormat.OpenXml.Wordprocessing;
 using DocumentFormat.OpenXml.Drawing.Diagrams;
