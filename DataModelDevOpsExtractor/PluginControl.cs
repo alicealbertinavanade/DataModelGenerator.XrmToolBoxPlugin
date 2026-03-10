@@ -775,5 +775,12 @@ namespace DataModelDevOpsExtractor
 
             return value.EndsWith("_", StringComparison.Ordinal) ? value : value + "_";
         }
-    }
+
+		private void PluginControl_Load(object sender, EventArgs e)
+		{
+			// Update button text with main connection name in English
+			var mainConnName = this.ConnectionDetail?.ConnectionName ?? "Env";
+			buttonUploadAmbiente.Text = $"Upload to {mainConnName}";
+		}
+	}
 }

@@ -231,18 +231,18 @@ namespace DataModelDevOpsExtractor.Repository
                     columnName,
                     tableName,
                     lookupTable,
-                    displayNameEn,
-                    description,
+					displayNameEn,
+					displayNameIt,
                     required);
             }
 
             var metadata = CreateAttributeMetadataByType(
                 columnName,
-                displayNameEn,
-                description,
+				displayNameEn,
+				displayNameIt,
                 columnType,
                 lookupTable,
-				sanitizedAdditionalData,
+                sanitizedAdditionalData,
                 required);
 
             var createReq = new CreateAttributeRequest
@@ -262,7 +262,7 @@ namespace DataModelDevOpsExtractor.Repository
             string tableName,
             string lookupTable,
             string displayNameEn,
-            string description,
+            string displayNameIt,
             AttributeRequiredLevel requiredLevel)
         {
             var targetEntity = (lookupTable ?? string.Empty).Trim().ToLowerInvariant();
@@ -280,9 +280,9 @@ namespace DataModelDevOpsExtractor.Repository
             {
                 SchemaName = columnName,
                 LogicalName = columnName,
-                DisplayName = new Label(string.IsNullOrWhiteSpace(displayNameEn) ? columnName : displayNameEn, 1033),
-                Description = new Label(description ?? string.Empty, 1033),
-                RequiredLevel = new AttributeRequiredLevelManagedProperty(requiredLevel)
+				DisplayName = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+				Description = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+				RequiredLevel = new AttributeRequiredLevelManagedProperty(requiredLevel)
             };
 
             var relationSchemaName = BuildRelationshipSchemaName(tableName, columnName, targetEntity);
@@ -333,7 +333,23 @@ namespace DataModelDevOpsExtractor.Repository
             return sanitized.Length <= 100 ? sanitized : sanitized.Substring(0, 100);
         }
 
-        private AttributeMetadata TryGetAttributeMetadataWithRetry(
+
+		private static Label CreateMultiLanguageLabel(string en, string it)
+		{
+			var label = new Label();
+
+			// Aggiungi le traduzioni
+			label.LocalizedLabels.Add(new LocalizedLabel(en, 1033)); // English
+			label.LocalizedLabels.Add(new LocalizedLabel(it, 1040)); // Italian
+
+			// Facoltativo ma consigliato: imposta una default (di solito 1033)
+			label.UserLocalizedLabel = new LocalizedLabel(en, 1033);
+
+			return label;
+		}
+
+
+		private AttributeMetadata TryGetAttributeMetadataWithRetry(
             string tableName,
             string columnName,
             bool retrieveAsIfPublished,
@@ -374,15 +390,13 @@ namespace DataModelDevOpsExtractor.Repository
         private AttributeMetadata CreateAttributeMetadataByType(
             string columnName,
             string displayNameEn,
-            string description,
+			string displayNameIt,
             string columnType,
             string lookupTable,
             string additionalData,
             AttributeRequiredLevel requiredLevel)
         {
             var normalizedType = NormalizeColumnType(columnType);
-            var displayLabel = new Label(string.IsNullOrWhiteSpace(displayNameEn) ? columnName : displayNameEn, 1033);
-            var descriptionLabel = new Label(description ?? string.Empty, 1033);
 
             switch (normalizedType)
             {
@@ -393,9 +407,9 @@ namespace DataModelDevOpsExtractor.Repository
                     {
                         SchemaName = columnName,
                         LogicalName = columnName,
-                        DisplayName = displayLabel,
-                        Description = descriptionLabel,
-                        MinValue = Math.Min(intMin, intMax),
+						DisplayName = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+						Description = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+						MinValue = Math.Min(intMin, intMax),
                         MaxValue = Math.Max(intMin, intMax),
                         RequiredLevel = new AttributeRequiredLevelManagedProperty(requiredLevel)
                     };
@@ -405,9 +419,9 @@ namespace DataModelDevOpsExtractor.Repository
                     {
                         SchemaName = columnName,
                         LogicalName = columnName,
-                        DisplayName = displayLabel,
-                        Description = descriptionLabel,
-                        MaxLength = ParseMaxLength(additionalData, 2000),
+						DisplayName = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+						Description = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+						MaxLength = ParseMaxLength(additionalData, 2000),
                         RequiredLevel = new AttributeRequiredLevelManagedProperty(requiredLevel)
                     };
 
@@ -418,9 +432,9 @@ namespace DataModelDevOpsExtractor.Repository
                     {
                         SchemaName = columnName,
                         LogicalName = columnName,
-                        DisplayName = displayLabel,
-                        Description = descriptionLabel,
-                        MinValue = Math.Min(decimalMin, decimalMax),
+						DisplayName = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+						Description = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+						MinValue = Math.Min(decimalMin, decimalMax),
                         MaxValue = Math.Max(decimalMin, decimalMax),
                         Precision = 2,
                         RequiredLevel = new AttributeRequiredLevelManagedProperty(requiredLevel)
@@ -433,9 +447,9 @@ namespace DataModelDevOpsExtractor.Repository
                     {
                         SchemaName = columnName,
                         LogicalName = columnName,
-                        DisplayName = displayLabel,
-                        Description = descriptionLabel,
-                        MinValue = Math.Min(doubleMin, doubleMax),
+						DisplayName = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+						Description = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+						MinValue = Math.Min(doubleMin, doubleMax),
                         MaxValue = Math.Max(doubleMin, doubleMax),
                         Precision = 2,
                         RequiredLevel = new AttributeRequiredLevelManagedProperty(requiredLevel)
@@ -448,9 +462,9 @@ namespace DataModelDevOpsExtractor.Repository
                     {
                         SchemaName = columnName,
                         LogicalName = columnName,
-                        DisplayName = displayLabel,
-                        Description = descriptionLabel,
-                        MinValue = Math.Min(moneyMin, moneyMax),
+						DisplayName = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+						Description = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+						MinValue = Math.Min(moneyMin, moneyMax),
                         MaxValue = Math.Max(moneyMin, moneyMax),
                         Precision = 2,
                         RequiredLevel = new AttributeRequiredLevelManagedProperty(requiredLevel)
@@ -464,9 +478,9 @@ namespace DataModelDevOpsExtractor.Repository
                     {
                         SchemaName = columnName,
                         LogicalName = columnName,
-                        DisplayName = displayLabel,
-                        Description = descriptionLabel,
-                        OptionSet = new BooleanOptionSetMetadata(
+						DisplayName = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+						Description = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+						OptionSet = new BooleanOptionSetMetadata(
                             new OptionMetadata(new Label(falseLabel, 1033), 0),
                             new OptionMetadata(new Label(trueLabel, 1033), 1)),
                         DefaultValue = defaultBool,
@@ -479,9 +493,9 @@ namespace DataModelDevOpsExtractor.Repository
                     {
                         SchemaName = columnName,
                         LogicalName = columnName,
-                        DisplayName = displayLabel,
-                        Description = descriptionLabel,
-                        Format = dateFormat,
+						DisplayName = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+						Description = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+						Format = dateFormat,
                         ImeMode = ImeMode.Disabled,
                         RequiredLevel = new AttributeRequiredLevelManagedProperty(requiredLevel)
                     };
@@ -489,7 +503,12 @@ namespace DataModelDevOpsExtractor.Repository
                 case "PICKLIST":
                 case "OPTIONSET":
                 case "OPTIONS":
-                    return CreatePicklistMetadata(columnName, displayLabel, descriptionLabel, additionalData, requiredLevel);
+                    return CreatePicklistMetadata(
+                        columnName,
+						displayNameEn, 
+                        displayNameIt,
+                        additionalData, 
+                        requiredLevel);
 
                 case "LOOKUP":
                     if (string.IsNullOrWhiteSpace(lookupTable))
@@ -500,9 +519,9 @@ namespace DataModelDevOpsExtractor.Repository
                     {
                         SchemaName = columnName,
                         LogicalName = columnName,
-                        DisplayName = displayLabel,
-                        Description = descriptionLabel,
-                        Targets = new[] { lookupTable.Trim().ToLowerInvariant() },
+						DisplayName = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+						Description = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+						Targets = new[] { lookupTable.Trim().ToLowerInvariant() },
                         RequiredLevel = new AttributeRequiredLevelManagedProperty(requiredLevel)
                     };
 
@@ -511,9 +530,9 @@ namespace DataModelDevOpsExtractor.Repository
                     {
                         SchemaName = columnName,
                         LogicalName = columnName,
-                        DisplayName = displayLabel,
-                        Description = descriptionLabel,
-                        MaxLength = ParseMaxLength(additionalData, 200),
+						DisplayName = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+						Description = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+						MaxLength = ParseMaxLength(additionalData, 200),
                         RequiredLevel = new AttributeRequiredLevelManagedProperty(requiredLevel)
                     };
             }
@@ -521,8 +540,8 @@ namespace DataModelDevOpsExtractor.Repository
 
         private static PicklistAttributeMetadata CreatePicklistMetadata(
             string columnName,
-            Label displayLabel,
-            Label descriptionLabel,
+            string displayNameEn,
+            string displayNameIt,
             string additionalData,
             AttributeRequiredLevel requiredLevel)
         {
@@ -570,9 +589,9 @@ namespace DataModelDevOpsExtractor.Repository
             {
                 SchemaName = columnName,
                 LogicalName = columnName,
-                DisplayName = displayLabel,
-                Description = descriptionLabel,
-                OptionSet = optionSetMetadata,
+				DisplayName = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+				Description = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+				OptionSet = optionSetMetadata,
                 DefaultFormValue = defaultValue,
                 RequiredLevel = new AttributeRequiredLevelManagedProperty(requiredLevel)
             };

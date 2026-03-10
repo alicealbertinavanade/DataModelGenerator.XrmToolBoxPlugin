@@ -40,7 +40,7 @@ namespace DataModelDevOpsExtractor.Service
             var descriptions = await DevOpsWorkItemFetcher.FetchWorkItemDescriptionsAsync(connectionString, ids);
 
             // Filtra solo i task con la struttura richiesta
-            var filteredDescriptions = descriptions.Where(desc => desc.Contains("System (Table")).ToList();
+            var filteredDescriptions = descriptions.Where(desc => desc.Contains("System")).ToList();
 
             if (filteredDescriptions.Count == 0)
             {
@@ -83,7 +83,7 @@ namespace DataModelDevOpsExtractor.Service
             }
 
             var descriptions = await DevOpsWorkItemFetcher.FetchWorkItemDescriptionsAsync(connectionString, ids);
-            var filteredDescriptions = descriptions.Where(desc => desc.Contains("System (Table")).ToList();
+            var filteredDescriptions = descriptions.Where(desc => desc.Contains("System")).ToList();
 
             if (filteredDescriptions.Count == 0)
             {

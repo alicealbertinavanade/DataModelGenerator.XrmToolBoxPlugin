@@ -52,7 +52,7 @@
 			this.txtConnectionString.Multiline = true;
 			this.txtConnectionString.Name = "txtConnectionString";
 			this.txtConnectionString.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-			this.txtConnectionString.Size = new System.Drawing.Size(553, 60);
+			this.txtConnectionString.Size = new System.Drawing.Size(670, 60);
 			this.txtConnectionString.TabIndex = 1;
 			// 
 			// txtTaskIds
@@ -60,7 +60,7 @@
 			this.txtTaskIds.Location = new System.Drawing.Point(212, 182);
 			this.txtTaskIds.Margin = new System.Windows.Forms.Padding(4);
 			this.txtTaskIds.Name = "txtTaskIds";
-			this.txtTaskIds.Size = new System.Drawing.Size(553, 22);
+			this.txtTaskIds.Size = new System.Drawing.Size(670, 22);
 			this.txtTaskIds.TabIndex = 3;
 			// 
 			// btnExtract
@@ -68,9 +68,9 @@
 			this.btnExtract.Location = new System.Drawing.Point(895, 38);
 			this.btnExtract.Margin = new System.Windows.Forms.Padding(4);
 			this.btnExtract.Name = "btnExtract";
-			this.btnExtract.Size = new System.Drawing.Size(160, 28);
+			this.btnExtract.Size = new System.Drawing.Size(193, 28);
 			this.btnExtract.TabIndex = 6;
-			this.btnExtract.Text = "Estrai Data Model CSV";
+			this.btnExtract.Text = "Export Data Model to CSV";
 			this.btnExtract.UseVisualStyleBackColor = true;
 			this.btnExtract.Click += new System.EventHandler(this.BtnExtract_Click);
 			// 
@@ -109,28 +109,28 @@
 			this.txtPrefix.Location = new System.Drawing.Point(212, 110);
 			this.txtPrefix.Margin = new System.Windows.Forms.Padding(4);
 			this.txtPrefix.Name = "txtPrefix";
-			this.txtPrefix.Size = new System.Drawing.Size(553, 22);
+			this.txtPrefix.Size = new System.Drawing.Size(670, 22);
 			this.txtPrefix.TabIndex = 5;
 			// 
 			// buttonUploadDataModel
 			// 
-			this.buttonUploadDataModel.Location = new System.Drawing.Point(391, 219);
+			this.buttonUploadDataModel.Location = new System.Drawing.Point(464, 219);
 			this.buttonUploadDataModel.Margin = new System.Windows.Forms.Padding(4);
 			this.buttonUploadDataModel.Name = "buttonUploadDataModel";
-			this.buttonUploadDataModel.Size = new System.Drawing.Size(160, 28);
+			this.buttonUploadDataModel.Size = new System.Drawing.Size(204, 28);
 			this.buttonUploadDataModel.TabIndex = 10;
-			this.buttonUploadDataModel.Text = "Carica Data Model";
+			this.buttonUploadDataModel.Text = "Upload to Data Model Env";
 			this.buttonUploadDataModel.UseVisualStyleBackColor = true;
 			this.buttonUploadDataModel.Click += new System.EventHandler(this.buttonUploadDataModel_Click);
 			// 
 			// buttonUploadAmbiente
 			// 
-			this.buttonUploadAmbiente.Location = new System.Drawing.Point(559, 219);
+			this.buttonUploadAmbiente.Location = new System.Drawing.Point(676, 219);
 			this.buttonUploadAmbiente.Margin = new System.Windows.Forms.Padding(4);
 			this.buttonUploadAmbiente.Name = "buttonUploadAmbiente";
 			this.buttonUploadAmbiente.Size = new System.Drawing.Size(206, 28);
 			this.buttonUploadAmbiente.TabIndex = 11;
-			this.buttonUploadAmbiente.Text = "Carica su Ambiente";
+			this.buttonUploadAmbiente.Text = "Upload to Env";
 			this.buttonUploadAmbiente.UseVisualStyleBackColor = true;
 			this.buttonUploadAmbiente.Click += new System.EventHandler(this.buttonUploadAmbiente_Click);
 			// 
@@ -139,9 +139,9 @@
 			this.buttonLoadMarkdown.Location = new System.Drawing.Point(212, 219);
 			this.buttonLoadMarkdown.Margin = new System.Windows.Forms.Padding(4);
 			this.buttonLoadMarkdown.Name = "buttonLoadMarkdown";
-			this.buttonLoadMarkdown.Size = new System.Drawing.Size(174, 28);
+			this.buttonLoadMarkdown.Size = new System.Drawing.Size(244, 28);
 			this.buttonLoadMarkdown.TabIndex = 9;
-			this.buttonLoadMarkdown.Text = "Load Markdown";
+			this.buttonLoadMarkdown.Text = "Load Markdown From Tasks";
 			this.buttonLoadMarkdown.UseVisualStyleBackColor = true;
 			this.buttonLoadMarkdown.Click += new System.EventHandler(this.buttonLoadMarkdown_Click);
 			// 
@@ -180,7 +180,7 @@
 			this.txtSolutionName.Location = new System.Drawing.Point(212, 147);
 			this.txtSolutionName.Margin = new System.Windows.Forms.Padding(4);
 			this.txtSolutionName.Name = "txtSolutionName";
-			this.txtSolutionName.Size = new System.Drawing.Size(553, 22);
+			this.txtSolutionName.Size = new System.Drawing.Size(670, 22);
 			this.txtSolutionName.TabIndex = 7;
 			// 
 			// lblUploadSummary
@@ -211,14 +211,14 @@
 			this.progressBarUploadAmbiente.Location = new System.Drawing.Point(212, 254);
 			this.progressBarUploadAmbiente.Margin = new System.Windows.Forms.Padding(4);
 			this.progressBarUploadAmbiente.Name = "progressBarUploadAmbiente";
-			this.progressBarUploadAmbiente.Size = new System.Drawing.Size(553, 16);
+			this.progressBarUploadAmbiente.Size = new System.Drawing.Size(636, 16);
 			this.progressBarUploadAmbiente.TabIndex = 15;
 			this.progressBarUploadAmbiente.Visible = false;
 			// 
 			// lblUploadProgress
 			// 
 			this.lblUploadProgress.AutoSize = true;
-			this.lblUploadProgress.Location = new System.Drawing.Point(771, 254);
+			this.lblUploadProgress.Location = new System.Drawing.Point(856, 254);
 			this.lblUploadProgress.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
 			this.lblUploadProgress.Name = "lblUploadProgress";
 			this.lblUploadProgress.Size = new System.Drawing.Size(26, 16);
@@ -280,6 +280,7 @@
 			this.Margin = new System.Windows.Forms.Padding(4);
 			this.Name = "PluginControl";
 			this.Size = new System.Drawing.Size(1971, 739);
+			this.Load += new System.EventHandler(this.PluginControl_Load);
 			this.toolStrip1.ResumeLayout(false);
 			this.toolStrip1.PerformLayout();
 			this.ResumeLayout(false);

@@ -8,7 +8,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using static ScintillaNET.Style;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
 using DataModelDevOpsExtractor.Model;
 using System.Windows;
