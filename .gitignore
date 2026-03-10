@@ -4,4 +4,37 @@
 /obj
 /packages
 \.vs
-Avanade.XrmToolbox.EglArtifactBuilder.csproj.user
+## Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Build output
+bin/
+obj/
+
+## NuGet
+packages/
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## Others
+TestResults/
+*.log
+*.tlog
+*.cache
+*.dbmdl
+*.dbproj.schemaview
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+.vscode/
+
+## User-specific files
+DataModelDevOpsExtractor/*.csproj.user
