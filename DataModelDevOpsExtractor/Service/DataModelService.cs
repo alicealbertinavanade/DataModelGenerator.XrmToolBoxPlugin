@@ -208,7 +208,7 @@ namespace DataModelDevOpsExtractor.Service
                     continue;
                 }
 
-                if (!line.StartsWith("|") || line.Replace(" ", "").StartsWith("|---"))
+                if (!line.Contains("|") || line.Replace(" ", "").StartsWith("|---"))
                     continue;
 
                 var cells = line.Trim('|').Split('|').Select(c => c.Trim().Replace("\\|", "|")).ToArray();

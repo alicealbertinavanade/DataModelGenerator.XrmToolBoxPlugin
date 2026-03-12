@@ -68,7 +68,7 @@
 			// 
 			// btnExtract
 			// 
-			this.btnExtract.Location = new System.Drawing.Point(1147, 261);
+			this.btnExtract.Location = new System.Drawing.Point(1147, 260);
 			this.btnExtract.Margin = new System.Windows.Forms.Padding(4);
 			this.btnExtract.Name = "btnExtract";
 			this.btnExtract.Size = new System.Drawing.Size(244, 28);
@@ -211,17 +211,17 @@
 			// 
 			// progressBarUploadAmbiente
 			// 
-			this.progressBarUploadAmbiente.Location = new System.Drawing.Point(212, 267);
+			this.progressBarUploadAmbiente.Location = new System.Drawing.Point(16, 267);
 			this.progressBarUploadAmbiente.Margin = new System.Windows.Forms.Padding(4);
 			this.progressBarUploadAmbiente.Name = "progressBarUploadAmbiente";
-			this.progressBarUploadAmbiente.Size = new System.Drawing.Size(558, 16);
+			this.progressBarUploadAmbiente.Size = new System.Drawing.Size(700, 16);
 			this.progressBarUploadAmbiente.TabIndex = 15;
 			this.progressBarUploadAmbiente.Visible = false;
 			// 
 			// lblUploadProgress
 			// 
 			this.lblUploadProgress.AutoSize = true;
-			this.lblUploadProgress.Location = new System.Drawing.Point(778, 267);
+			this.lblUploadProgress.Location = new System.Drawing.Point(724, 266);
 			this.lblUploadProgress.Margin = new System.Windows.Forms.Padding(4, 0, 4, 0);
 			this.lblUploadProgress.Name = "lblUploadProgress";
 			this.lblUploadProgress.Size = new System.Drawing.Size(26, 16);

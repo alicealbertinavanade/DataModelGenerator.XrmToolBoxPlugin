@@ -21,13 +21,24 @@ namespace DataModelDevOpsExtractor.Repository
         private readonly IOrganizationService service;
         private readonly string prefixEnv;
 
+        public class PrimaryAttributeDefinition
+        {
+            public string SchemaName { get; set; }
+            public string DisplayNameIt { get; set; }
+            public string DisplayNameEn { get; set; }
+            public string Description { get; set; }
+            public string ColumnType { get; set; }
+            public string AdditionalData { get; set; }
+            public string RequirementLevel { get; set; }
+        }
+
         public EnvironmentRepository(IOrganizationService service, string prefixEnv)
         {
             this.service = service;
             this.prefixEnv = prefixEnv;
         }
 
-        public void CreateTable(string tableName, string system, string nameEn, string nameIt, string primaryAttributeLogicalName = null)
+        public void CreateTable(string tableName, string system, string nameEn, string nameIt, PrimaryAttributeDefinition primaryAttributeDefinition = null)
         {
             var normalizedTableName = NormalizeSchemaName(tableName);
             if (string.IsNullOrWhiteSpace(normalizedTableName))
@@ -35,7 +46,7 @@ namespace DataModelDevOpsExtractor.Repository
                 throw new InvalidPluginExecutionException("Schema name tabella mancante.");
             }
 
-            var primaryAttributeName = BuildPrimaryAttributeName(primaryAttributeLogicalName);
+            var primaryAttribute = BuildPrimaryAttributeMetadata(primaryAttributeDefinition);
 
             var createReq = new CreateEntityRequest
             {
@@ -50,19 +61,73 @@ namespace DataModelDevOpsExtractor.Repository
                     HasNotes = true,
                     HasActivities = false
                 },
-                PrimaryAttribute = new StringAttributeMetadata
-                {
-                    SchemaName = primaryAttributeName,
-                    LogicalName = primaryAttributeName,
-                    DisplayName = new Label("Name", 1033),
-                    MaxLength = 200,
-                    RequiredLevel = new AttributeRequiredLevelManagedProperty(AttributeRequiredLevel.None)
-                }
+                PrimaryAttribute = primaryAttribute
             };
 
             service.Execute(createReq);
             // 3) Publish della sola entità (consigliato)
             PublishEntity(service, normalizedTableName);
+        }
+
+        private StringAttributeMetadata BuildPrimaryAttributeMetadata(PrimaryAttributeDefinition definition)
+        {
+            if (definition == null)
+            {
+                var fallbackName = BuildPrimaryAttributeName(null);
+                return new StringAttributeMetadata
+                {
+                    SchemaName = fallbackName,
+                    LogicalName = fallbackName,
+                    DisplayName = CreateMultiLanguageLabel("Name", "Name"),
+                    Description = CreateMultiLanguageLabel("Name", "Name"),
+                    MaxLength = 200,
+                    RequiredLevel = new AttributeRequiredLevelManagedProperty(AttributeRequiredLevel.None)
+                };
+            }
+
+            var primaryAttributeName = BuildPrimaryAttributeName(definition.SchemaName);
+            var sanitizedAdditionalData = SanitizeAdditionalData(definition.AdditionalData);
+            var requiredLevel = ParseRequiredLevel(definition.RequirementLevel);
+            var normalizedType = NormalizeColumnType(definition.ColumnType);
+
+            if (string.IsNullOrWhiteSpace(normalizedType)
+                || normalizedType == "STRING"
+                || normalizedType == "TEXT")
+            {
+                if (IsAutoNumberDefinition(sanitizedAdditionalData))
+                {
+                    var autoNumberFormat = ParseAutoNumberFormat(sanitizedAdditionalData);
+                    if (string.IsNullOrWhiteSpace(autoNumberFormat))
+                    {
+                        throw new InvalidPluginExecutionException(
+                            $"Formato AutoNumber non valido per il primary attribute {primaryAttributeName}. Esempio atteso: Format: Text - A\\d{{9}}.");
+                    }
+
+                    return new StringAttributeMetadata
+                    {
+                        SchemaName = primaryAttributeName,
+                        LogicalName = primaryAttributeName,
+                        DisplayName = CreateMultiLanguageLabel(definition.DisplayNameEn ?? "Name", definition.DisplayNameIt ?? definition.DisplayNameEn ?? "Name"),
+                        Description = CreateMultiLanguageLabel(definition.Description ?? definition.DisplayNameEn ?? "Name", definition.Description ?? definition.DisplayNameIt ?? definition.DisplayNameEn ?? "Name"),
+                        MaxLength = ParseMaxLength(sanitizedAdditionalData, 200),
+                        AutoNumberFormat = autoNumberFormat,
+                        RequiredLevel = new AttributeRequiredLevelManagedProperty(requiredLevel)
+                    };
+                }
+
+                return new StringAttributeMetadata
+                {
+                    SchemaName = primaryAttributeName,
+                    LogicalName = primaryAttributeName,
+                    DisplayName = CreateMultiLanguageLabel(definition.DisplayNameEn ?? "Name", definition.DisplayNameIt ?? definition.DisplayNameEn ?? "Name"),
+                    Description = CreateMultiLanguageLabel(definition.Description ?? definition.DisplayNameEn ?? "Name", definition.Description ?? definition.DisplayNameIt ?? definition.DisplayNameEn ?? "Name"),
+                    MaxLength = ParseMaxLength(sanitizedAdditionalData, 200),
+                    RequiredLevel = new AttributeRequiredLevelManagedProperty(requiredLevel)
+                };
+            }
+
+            throw new InvalidPluginExecutionException(
+                $"Il datatype '{definition.ColumnType}' non e supportato come primary attribute per la colonna {primaryAttributeName}. Usa String o Autonumber.");
         }
 
         private string BuildPrimaryAttributeName(string primaryAttributeLogicalName)
@@ -79,11 +144,6 @@ namespace DataModelDevOpsExtractor.Repository
             if (string.IsNullOrWhiteSpace(value))
             {
                 return fallback;
-            }
-
-            if (!value.StartsWith(prefixEnv, StringComparison.OrdinalIgnoreCase))
-            {
-                value = $"{prefixEnv}{value}";
             }
 
             if (value.Length > 50)
@@ -584,6 +644,27 @@ namespace DataModelDevOpsExtractor.Repository
                     };
 
                 default:
+                    if (IsAutoNumberDefinition(additionalData))
+                    {
+                        var autoNumberFormat = ParseAutoNumberFormat(additionalData);
+                        if (string.IsNullOrWhiteSpace(autoNumberFormat))
+                        {
+                            throw new InvalidPluginExecutionException(
+                                $"Formato AutoNumber non valido per la colonna {columnName}. Esempio atteso: Format: Text - A\\d{{9}}.");
+                        }
+
+                        return new StringAttributeMetadata
+                        {
+                            SchemaName = columnName,
+                            LogicalName = columnName,
+						    DisplayName = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+						    Description = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+                            MaxLength = ParseMaxLength(additionalData, 100),
+                            AutoNumberFormat = autoNumberFormat,
+                            RequiredLevel = new AttributeRequiredLevelManagedProperty(requiredLevel)
+                        };
+                    }
+
                     return new StringAttributeMetadata
                     {
                         SchemaName = columnName,
@@ -594,6 +675,32 @@ namespace DataModelDevOpsExtractor.Repository
                         RequiredLevel = new AttributeRequiredLevelManagedProperty(requiredLevel)
                     };
             }
+        }
+
+        private static bool IsAutoNumberDefinition(string additionalData)
+        {
+            if (string.IsNullOrWhiteSpace(additionalData))
+            {
+                return false;
+            }
+
+            return Regex.IsMatch(additionalData, @"(?im)^\s*Autonumber\s*$")
+                || Regex.IsMatch(additionalData, @"(?i)\bAutonumber\b");
+        }
+
+        private static string ParseAutoNumberFormat(string additionalData)
+        {
+            var rawFormat = ParseAdditionalDataValue(additionalData, "Format");
+            if (string.IsNullOrWhiteSpace(rawFormat))
+            {
+                return null;
+            }
+
+            var formatValue = rawFormat.Trim();
+            formatValue = Regex.Replace(formatValue, @"(?i)^\s*Text\s*-\s*", string.Empty);
+            formatValue = Regex.Replace(formatValue, @"\\d\{(\d+)\}", "{SEQNUM:$1}");
+
+            return formatValue.Trim();
         }
 
         private PicklistAttributeMetadata CreatePicklistMetadata(

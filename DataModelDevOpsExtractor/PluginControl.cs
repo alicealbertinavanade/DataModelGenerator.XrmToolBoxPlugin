@@ -7,6 +7,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.Drawing.Text;
 using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -51,11 +52,37 @@ namespace DataModelDevOpsExtractor
         public PluginControl()
         {
             InitializeComponent();
+            ConfigureMarkdownEditorAppearance();
             HideUploadSummary();
             ResetUploadProgress();
             // Carica la connection string e la datamodeluri salvate
             txtConnectionString.Text = UserConfig.LoadConnectionString();
             txtPrefix.Text = UserConfig.LoadPrefix();
+        }
+
+        private void ConfigureMarkdownEditorAppearance()
+        {
+            txtMarkdown.Font = CreatePreferredMarkdownFont();
+            txtMarkdown.AcceptsTab = true;
+            txtMarkdown.DetectUrls = false;
+            txtMarkdown.WordWrap = false;
+        }
+
+        private static Font CreatePreferredMarkdownFont()
+        {
+            var preferredFonts = new[] { "Cascadia Mono", "Cascadia Code", "Consolas", "Courier New" };
+            var installed = new InstalledFontCollection();
+            var installedNames = new HashSet<string>(installed.Families.Select(f => f.Name), StringComparer.OrdinalIgnoreCase);
+
+            foreach (var preferred in preferredFonts)
+            {
+                if (installedNames.Contains(preferred))
+                {
+                    return new Font(preferred, 10.5f, FontStyle.Regular, GraphicsUnit.Point);
+                }
+            }
+
+            return new Font(FontFamily.GenericMonospace, 10.5f, FontStyle.Regular, GraphicsUnit.Point);
         }
         private void ToolStripBtnDataModelEnv_Click(object sender, EventArgs e)
         {
@@ -432,6 +459,49 @@ namespace DataModelDevOpsExtractor
             var statusEntries = new List<UploadStatusEntry>();
             var trackedTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var totalRows = allRows.Count;
+            var primaryAttributeByTable = new Dictionary<string, EnvironmentRepository.PrimaryAttributeDefinition>(StringComparer.OrdinalIgnoreCase);
+            var primaryColumnCreatedWithTable = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var preScanRow in allRows)
+            {
+                var row = preScanRow.Row;
+                if (row == null)
+                {
+                    continue;
+                }
+
+                var tableName = row.ElementAtOrDefault(1)?.Trim();
+                var schemaNameCandidate = row.ElementAtOrDefault(2)?.Trim();
+                var primaryFlag = row.ElementAtOrDefault(10)?.Trim();
+
+                if (string.IsNullOrWhiteSpace(tableName) || string.IsNullOrWhiteSpace(schemaNameCandidate))
+                {
+                    continue;
+                }
+
+                if (!string.Equals(primaryFlag, "Y", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (primaryAttributeByTable.TryGetValue(tableName, out var existingPrimary)
+                    && !string.Equals(existingPrimary?.SchemaName, schemaNameCandidate, StringComparison.OrdinalIgnoreCase))
+                {
+                    MessageBox.Show($"La tabella '{tableName}' ha piu colonne marcate come Primary=Y ({existingPrimary?.SchemaName}, {schemaNameCandidate}). Usa una sola colonna Primary=Y per tabella.");
+                    return false;
+                }
+
+                primaryAttributeByTable[tableName] = new EnvironmentRepository.PrimaryAttributeDefinition
+                {
+                    SchemaName = schemaNameCandidate,
+                    DisplayNameIt = row.ElementAtOrDefault(3)?.Trim(),
+                    DisplayNameEn = row.ElementAtOrDefault(4)?.Trim(),
+                    Description = row.ElementAtOrDefault(5)?.Trim(),
+                    ColumnType = row.ElementAtOrDefault(6)?.Trim(),
+                    AdditionalData = row.ElementAtOrDefault(8)?.Trim(),
+                    RequirementLevel = row.ElementAtOrDefault(9)?.Trim()
+                };
+            }
 
             SetUploadProgress(10, $"Elaborazione 0/{totalRows}");
 
@@ -456,7 +526,6 @@ namespace DataModelDevOpsExtractor
                 var lookupTable = row.ElementAtOrDefault(7)?.Trim();
                 var additionalData = row.ElementAtOrDefault(8)?.Trim();
                 var requirementLevel = row.ElementAtOrDefault(9)?.Trim();
-                var primaryAttribute = row.ElementAtOrDefault(10)?.Trim();
                 var usage = row.ElementAtOrDefault(11)?.Trim();
                 var tableDisplayNameEn = taskRow.TableDisplayNameEn;
                 var tableDisplayNameIt = taskRow.TableDisplayNameIt;
@@ -480,13 +549,18 @@ namespace DataModelDevOpsExtractor
                     var tableAlreadyExists = envRepo.TableExists(table);
                     if(!tableAlreadyExists)
                     {
+                        primaryAttributeByTable.TryGetValue(table, out var primaryAttributeDefinition);
+                        var normalizedPrimaryAttribute = (primaryAttributeDefinition?.SchemaName ?? $"{prefixEnv}name").Trim();
+
                         envRepo.CreateTable(
                             table,
                             system,
                             tableDisplayNameEn,
                             tableDisplayNameIt,
-                            primaryAttribute
+                            primaryAttributeDefinition
                         );
+
+                        primaryColumnCreatedWithTable.Add($"{table.Trim().ToLowerInvariant()}|{normalizedPrimaryAttribute.Trim().ToLowerInvariant()}");
 
                         if (!string.IsNullOrWhiteSpace(solutionName))
                         {
@@ -533,6 +607,22 @@ namespace DataModelDevOpsExtractor
 
                 try
                 {
+                    var normalizedKey = $"{table.Trim().ToLowerInvariant()}|{schemaName.Trim().ToLowerInvariant()}";
+                    if (primaryColumnCreatedWithTable.Contains(normalizedKey))
+                    {
+                        statusEntries.Add(new UploadStatusEntry
+                        {
+                            Kind = "Column",
+                            TableName = table,
+                            ColumnName = schemaName,
+                            Status = UploadResultStatus.Existing,
+                            ErrorMessage = "Colonna primaria gia creata durante CreateTable"
+                        });
+
+                        UpdateProgressFromRow(rowIndex + 1, totalRows);
+                        continue;
+                    }
+
                     var columnAlreadyExists = envRepo.ColumnExists(schemaName, table);
 
                     var column = envRepo.GetOrCreateColumn(
