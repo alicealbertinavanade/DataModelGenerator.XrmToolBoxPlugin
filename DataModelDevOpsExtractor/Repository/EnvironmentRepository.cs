@@ -27,14 +27,22 @@ namespace DataModelDevOpsExtractor.Repository
             this.prefixEnv = prefixEnv;
         }
 
-        public void CreateTable(string tableName, string system, string nameEn, string nameIt)
+        public void CreateTable(string tableName, string system, string nameEn, string nameIt, string primaryAttributeLogicalName = null)
         {
+            var normalizedTableName = NormalizeSchemaName(tableName);
+            if (string.IsNullOrWhiteSpace(normalizedTableName))
+            {
+                throw new InvalidPluginExecutionException("Schema name tabella mancante.");
+            }
+
+            var primaryAttributeName = BuildPrimaryAttributeName(primaryAttributeLogicalName);
+
             var createReq = new CreateEntityRequest
             {
                 Entity = new EntityMetadata
                 {
-                    SchemaName = tableName,               // es: "new_MyTable"
-                    LogicalName = tableName,             // es: "new_mytable"
+                    SchemaName = normalizedTableName,
+                    LogicalName = normalizedTableName,
                     DisplayName = new Label(nameEn, 1033),
                     DisplayCollectionName = new Label(nameEn, 1033),
                     OwnershipType = OwnershipTypes.UserOwned,
@@ -44,8 +52,8 @@ namespace DataModelDevOpsExtractor.Repository
                 },
                 PrimaryAttribute = new StringAttributeMetadata
                 {
-                    SchemaName = $"{prefixEnv}name",       // es: "new_MyTableName"
-                    LogicalName = $"{prefixEnv}name",
+                    SchemaName = primaryAttributeName,
+                    LogicalName = primaryAttributeName,
                     DisplayName = new Label("Name", 1033),
                     MaxLength = 200,
                     RequiredLevel = new AttributeRequiredLevelManagedProperty(AttributeRequiredLevel.None)
@@ -54,7 +62,36 @@ namespace DataModelDevOpsExtractor.Repository
 
             service.Execute(createReq);
             // 3) Publish della sola entità (consigliato)
-            PublishEntity(service, tableName);
+            PublishEntity(service, normalizedTableName);
+        }
+
+        private string BuildPrimaryAttributeName(string primaryAttributeLogicalName)
+        {
+            var fallback = NormalizeSchemaName($"{prefixEnv}name");
+            var value = (primaryAttributeLogicalName ?? string.Empty).Trim().ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return fallback;
+            }
+
+            value = Regex.Replace(value, "[^a-z0-9_]", "_");
+            value = Regex.Replace(value, "_+", "_").Trim('_');
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return fallback;
+            }
+
+            if (!value.StartsWith(prefixEnv, StringComparison.OrdinalIgnoreCase))
+            {
+                value = $"{prefixEnv}{value}";
+            }
+
+            if (value.Length > 50)
+            {
+                value = value.Substring(0, 50);
+            }
+
+            return NormalizeSchemaName(value);
         }
 
 
@@ -73,9 +110,10 @@ namespace DataModelDevOpsExtractor.Repository
         {
             try
             {
+                var normalizedTableName = NormalizeSchemaName(tableName);
                 var req = new RetrieveEntityRequest
                 {
-                    LogicalName = tableName,
+                    LogicalName = normalizedTableName,
                     EntityFilters = EntityFilters.Entity, // basta Entity, non serve Attributes
                     RetrieveAsIfPublished = true
                 };
@@ -109,9 +147,10 @@ namespace DataModelDevOpsExtractor.Repository
 
         public void AddTableToSolution(string solutionUniqueName, string tableName)
         {
+            var normalizedTableName = NormalizeSchemaName(tableName);
             var entityReq = new RetrieveEntityRequest
             {
-                LogicalName = tableName,
+                LogicalName = normalizedTableName,
                 EntityFilters = EntityFilters.Entity,
                 RetrieveAsIfPublished = true
             };
@@ -120,7 +159,7 @@ namespace DataModelDevOpsExtractor.Repository
 
             if (!entityId.HasValue)
             {
-                throw new InvalidPluginExecutionException($"Impossibile recuperare MetadataId per la tabella {tableName}.");
+                throw new InvalidPluginExecutionException($"Impossibile recuperare MetadataId per la tabella {normalizedTableName}.");
             }
 
             AddSolutionComponent(solutionUniqueName, entityId.Value, SolutionComponentTypeEntity);
@@ -128,14 +167,17 @@ namespace DataModelDevOpsExtractor.Repository
 
         public void AddColumnToSolution(string solutionUniqueName, string tableName, string columnName)
         {
-            var attributeMetadata = TryGetAttributeMetadataWithRetry(tableName, columnName, true, 6, 500)
-                ?? TryGetAttributeMetadataWithRetry(tableName, columnName, false, 4, 500);
+            var normalizedTableName = NormalizeSchemaName(tableName);
+            var normalizedColumnName = NormalizeSchemaName(columnName);
+
+            var attributeMetadata = TryGetAttributeMetadataWithRetry(normalizedTableName, normalizedColumnName, true, 6, 500)
+                ?? TryGetAttributeMetadataWithRetry(normalizedTableName, normalizedColumnName, false, 4, 500);
 
             var attributeId = attributeMetadata?.MetadataId;
 
             if (!attributeId.HasValue)
             {
-                throw new InvalidPluginExecutionException($"Impossibile recuperare MetadataId per la colonna {tableName}.{columnName}.");
+                throw new InvalidPluginExecutionException($"Impossibile recuperare MetadataId per la colonna {normalizedTableName}.{normalizedColumnName}.");
             }
 
             AddSolutionComponent(solutionUniqueName, attributeId.Value, SolutionComponentTypeAttribute);
@@ -178,10 +220,12 @@ namespace DataModelDevOpsExtractor.Repository
         {
             try
             {
+                var normalizedTableName = NormalizeSchemaName(tableName);
+                var normalizedColumnName = NormalizeSchemaName(columnName);
                 var req = new RetrieveAttributeRequest
                 {
-                    EntityLogicalName = tableName,
-                    LogicalName = columnName,
+                    EntityLogicalName = normalizedTableName,
+                    LogicalName = normalizedColumnName,
                     RetrieveAsIfPublished = true
                 };
 
@@ -208,13 +252,17 @@ namespace DataModelDevOpsExtractor.Repository
             string usage
             )
         {
-            var columnExists = ColumnExists(columnName, tableName);
+            var normalizedColumnName = NormalizeSchemaName(columnName);
+            var normalizedTableName = NormalizeSchemaName(tableName);
+            var normalizedLookupTable = NormalizeSchemaName(lookupTable);
+
+            var columnExists = ColumnExists(normalizedColumnName, normalizedTableName);
             if (columnExists)
             {
                 var retrieveReq = new RetrieveAttributeRequest
                 {
-                    EntityLogicalName = tableName,
-                    LogicalName = columnName,
+                    EntityLogicalName = normalizedTableName,
+                    LogicalName = normalizedColumnName,
                     RetrieveAsIfPublished = true
                 };
                 var retrieveResp = (RetrieveAttributeResponse)service.Execute(retrieveReq);
@@ -228,31 +276,31 @@ namespace DataModelDevOpsExtractor.Repository
             if (normalizedType == "LOOKUP")
             {
                 return CreateLookupColumn(
-                    columnName,
-                    tableName,
-                    lookupTable,
+                    normalizedColumnName,
+                    normalizedTableName,
+                    normalizedLookupTable,
 					displayNameEn,
 					displayNameIt,
                     required);
             }
 
             var metadata = CreateAttributeMetadataByType(
-                columnName,
+                normalizedColumnName,
 				displayNameEn,
 				displayNameIt,
                 columnType,
-                lookupTable,
+                normalizedLookupTable,
                 sanitizedAdditionalData,
                 required);
 
             var createReq = new CreateAttributeRequest
             {
-                EntityName = tableName,
+                EntityName = normalizedTableName,
                 Attribute = metadata
             };
 
             service.Execute(createReq);
-            PublishEntity(service, tableName);
+            PublishEntity(service, normalizedTableName);
 
             return metadata;
         }
@@ -265,10 +313,12 @@ namespace DataModelDevOpsExtractor.Repository
             string displayNameIt,
             AttributeRequiredLevel requiredLevel)
         {
-            var targetEntity = (lookupTable ?? string.Empty).Trim().ToLowerInvariant();
+            var normalizedColumnName = NormalizeSchemaName(columnName);
+            var normalizedTableName = NormalizeSchemaName(tableName);
+            var targetEntity = NormalizeSchemaName(lookupTable);
             if (string.IsNullOrWhiteSpace(targetEntity))
             {
-                throw new InvalidPluginExecutionException($"Lookup table mancante per la colonna {columnName}.");
+                throw new InvalidPluginExecutionException($"Lookup table mancante per la colonna {normalizedColumnName}.");
             }
 
             if (!TableExists(targetEntity))
@@ -278,21 +328,21 @@ namespace DataModelDevOpsExtractor.Repository
 
             var lookupMetadata = new LookupAttributeMetadata
             {
-                SchemaName = columnName,
-                LogicalName = columnName,
+				SchemaName = normalizedColumnName,
+				LogicalName = normalizedColumnName,
 				DisplayName = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
 				Description = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
 				RequiredLevel = new AttributeRequiredLevelManagedProperty(requiredLevel)
             };
 
-            var relationSchemaName = BuildRelationshipSchemaName(tableName, columnName, targetEntity);
+            var relationSchemaName = BuildRelationshipSchemaName(normalizedTableName, normalizedColumnName, targetEntity);
             var createRelationshipReq = new CreateOneToManyRequest
             {
                 Lookup = lookupMetadata,
                 OneToManyRelationship = new OneToManyRelationshipMetadata
                 {
                     ReferencedEntity = targetEntity,
-                    ReferencingEntity = tableName,
+                    ReferencingEntity = normalizedTableName,
                     SchemaName = relationSchemaName,
                     AssociatedMenuConfiguration = new AssociatedMenuConfiguration
                     {
@@ -314,17 +364,17 @@ namespace DataModelDevOpsExtractor.Repository
             };
 
             service.Execute(createRelationshipReq);
-            PublishEntity(service, tableName);
+            PublishEntity(service, normalizedTableName);
 
             // Per i lookup il metadata puo diventare disponibile con lieve ritardo.
-            return TryGetAttributeMetadataWithRetry(tableName, columnName, true, 6, 500)
+            return TryGetAttributeMetadataWithRetry(normalizedTableName, normalizedColumnName, true, 6, 500)
                 ?? lookupMetadata;
         }
 
         private static string BuildRelationshipSchemaName(string referencingEntity, string columnName, string referencedEntity)
         {
             var raw = $"{referencingEntity}_{columnName}_{referencedEntity}";
-            var sanitized = Regex.Replace(raw ?? string.Empty, "[^A-Za-z0-9_]", "_");
+            var sanitized = Regex.Replace(raw ?? string.Empty, "[^A-Za-z0-9_]", "_").ToLowerInvariant();
             if (string.IsNullOrWhiteSpace(sanitized))
             {
                 sanitized = "rel_lookup";
@@ -356,14 +406,17 @@ namespace DataModelDevOpsExtractor.Repository
             int attempts,
             int delayMs)
         {
+            var normalizedTableName = NormalizeSchemaName(tableName);
+            var normalizedColumnName = NormalizeSchemaName(columnName);
+
             for (var i = 0; i < attempts; i++)
             {
                 try
                 {
                     var retrieveReq = new RetrieveAttributeRequest
                     {
-                        EntityLogicalName = tableName,
-                        LogicalName = columnName,
+                        EntityLogicalName = normalizedTableName,
+                        LogicalName = normalizedColumnName,
                         RetrieveAsIfPublished = retrieveAsIfPublished
                     };
 
@@ -385,6 +438,11 @@ namespace DataModelDevOpsExtractor.Repository
             }
 
             return null;
+        }
+
+        private static string NormalizeSchemaName(string value)
+        {
+            return (value ?? string.Empty).Trim().ToLowerInvariant();
         }
 
         private AttributeMetadata CreateAttributeMetadataByType(
@@ -538,13 +596,43 @@ namespace DataModelDevOpsExtractor.Repository
             }
         }
 
-        private static PicklistAttributeMetadata CreatePicklistMetadata(
+        private PicklistAttributeMetadata CreatePicklistMetadata(
             string columnName,
             string displayNameEn,
             string displayNameIt,
             string additionalData,
             AttributeRequiredLevel requiredLevel)
         {
+            var globalChoiceName = ParseGlobalChoiceName(additionalData);
+            if (!string.IsNullOrWhiteSpace(globalChoiceName))
+            {
+                var globalOptionSet = TryGetGlobalOptionSetByName(globalChoiceName);
+                if (globalOptionSet == null)
+                {
+                    throw new InvalidPluginExecutionException(
+                        $"Global choice '{globalChoiceName}' non trovata per la colonna {columnName}. Verifica il valore in Additional data (Options: {globalChoiceName}).");
+                }
+
+                var defaultRawGlobal = ParseAdditionalDataValue(additionalData, "Default");
+                int? defaultGlobalValue = TryResolveOptionDefault(defaultRawGlobal, globalOptionSet.Options);
+
+                return new PicklistAttributeMetadata
+                {
+                    SchemaName = columnName,
+                    LogicalName = columnName,
+					DisplayName = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+					Description = CreateMultiLanguageLabel(displayNameEn, displayNameIt),
+					OptionSet = new OptionSetMetadata
+                    {
+                        IsGlobal = true,
+                        Name = globalOptionSet.Name,
+                        OptionSetType = OptionSetType.Picklist
+                    },
+                    DefaultFormValue = defaultGlobalValue,
+                    RequiredLevel = new AttributeRequiredLevelManagedProperty(requiredLevel)
+                };
+            }
+
             var options = ParseOptionSetOptions(additionalData).ToList();
             if (!options.Any())
             {
@@ -553,26 +641,7 @@ namespace DataModelDevOpsExtractor.Repository
             }
 
             var defaultRaw = ParseAdditionalDataValue(additionalData, "Default");
-            int? defaultValue = null;
-            if (!string.IsNullOrWhiteSpace(defaultRaw)
-                && !string.Equals(defaultRaw.Trim(), "N/A", StringComparison.OrdinalIgnoreCase)
-                && int.TryParse(defaultRaw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var numericDefault))
-            {
-                if (options.Any(o => o.Value == numericDefault))
-                {
-                    defaultValue = numericDefault;
-                }
-            }
-            else if (!string.IsNullOrWhiteSpace(defaultRaw)
-                && !string.Equals(defaultRaw.Trim(), "N/A", StringComparison.OrdinalIgnoreCase))
-            {
-                var matched = options.FirstOrDefault(o =>
-                    string.Equals(o.Label?.UserLocalizedLabel?.Label, defaultRaw, StringComparison.OrdinalIgnoreCase));
-                if (matched != null)
-                {
-                    defaultValue = matched.Value;
-                }
-            }
+            int? defaultValue = TryResolveOptionDefault(defaultRaw, options);
 
             var optionSetMetadata = new OptionSetMetadata
             {
@@ -595,6 +664,178 @@ namespace DataModelDevOpsExtractor.Repository
                 DefaultFormValue = defaultValue,
                 RequiredLevel = new AttributeRequiredLevelManagedProperty(requiredLevel)
             };
+        }
+
+        private static int? TryResolveOptionDefault(string defaultRaw, IEnumerable<OptionMetadata> options)
+        {
+            if (string.IsNullOrWhiteSpace(defaultRaw))
+            {
+                return null;
+            }
+
+            var normalizedDefault = defaultRaw.Trim();
+            if (string.Equals(normalizedDefault, "N/A", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            var optionList = options?.ToList() ?? new List<OptionMetadata>();
+
+            if (int.TryParse(normalizedDefault, NumberStyles.Integer, CultureInfo.InvariantCulture, out var numericDefault))
+            {
+                return optionList.Any(o => o?.Value == numericDefault)
+                    ? numericDefault
+                    : (int?)null;
+            }
+
+            var matched = optionList.FirstOrDefault(o =>
+                string.Equals(o?.Label?.UserLocalizedLabel?.Label, normalizedDefault, StringComparison.OrdinalIgnoreCase)
+                || (o?.Label?.LocalizedLabels?.Any(l =>
+                    string.Equals(l?.Label, normalizedDefault, StringComparison.OrdinalIgnoreCase)) ?? false));
+
+            return matched?.Value;
+        }
+
+        private static OptionMetadata ParseLocalOptionLine(string rawLine)
+        {
+            if (string.IsNullOrWhiteSpace(rawLine))
+            {
+                return null;
+            }
+
+            var match = Regex.Match(rawLine, @"^\s*[-*]?\s*(\d+)\s*:\s*(.+?)\s*$");
+            if (!match.Success)
+            {
+                return null;
+            }
+
+            if (!int.TryParse(match.Groups[1].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
+            {
+                return null;
+            }
+
+            var rawLabel = match.Groups[2].Value?.Trim();
+            if (string.IsNullOrWhiteSpace(rawLabel))
+            {
+                return null;
+            }
+
+            var translatedMatch = Regex.Match(rawLabel, @"^<\s*(.+?)\s*>\s*/\s*<\s*(.+?)\s*>$");
+            if (translatedMatch.Success)
+            {
+                var italianLabel = translatedMatch.Groups[1].Value?.Trim();
+                var englishLabel = translatedMatch.Groups[2].Value?.Trim();
+
+                if (string.IsNullOrWhiteSpace(englishLabel) && string.IsNullOrWhiteSpace(italianLabel))
+                {
+                    return null;
+                }
+
+                if (string.IsNullOrWhiteSpace(englishLabel))
+                {
+                    englishLabel = italianLabel;
+                }
+
+                if (string.IsNullOrWhiteSpace(italianLabel))
+                {
+                    italianLabel = englishLabel;
+                }
+
+                var label = new Label(englishLabel, 1033);
+                if (!label.LocalizedLabels.Any(l => l?.LanguageCode == 1033))
+                {
+                    label.LocalizedLabels.Add(new LocalizedLabel(englishLabel, 1033));
+                }
+
+                if (!label.LocalizedLabels.Any(l => l?.LanguageCode == 1040))
+                {
+                    label.LocalizedLabels.Add(new LocalizedLabel(italianLabel, 1040));
+                }
+
+                return new OptionMetadata(label, value);
+            }
+
+            var singleLanguageLabel = rawLabel;
+            var singleLabel = new Label(singleLanguageLabel, 1033);
+            if (!singleLabel.LocalizedLabels.Any(l => l?.LanguageCode == 1033))
+            {
+                singleLabel.LocalizedLabels.Add(new LocalizedLabel(singleLanguageLabel, 1033));
+            }
+
+            if (!singleLabel.LocalizedLabels.Any(l => l?.LanguageCode == 1040))
+            {
+                singleLabel.LocalizedLabels.Add(new LocalizedLabel(singleLanguageLabel, 1040));
+            }
+
+            return new OptionMetadata(singleLabel, value);
+        }
+
+        private static string ParseGlobalChoiceName(string additionalData)
+        {
+            var optionsValue = ParseAdditionalDataValue(additionalData, "Options");
+            if (string.IsNullOrWhiteSpace(optionsValue))
+            {
+                return null;
+            }
+
+            var candidate = optionsValue.Trim();
+            if (Regex.IsMatch(candidate, @"^\s*[-*]?\s*\d+\s*:\s*.+$"))
+            {
+                // Formato locale inline (es: "Options: 0: Active").
+                return null;
+            }
+
+            return candidate;
+        }
+
+        private OptionSetMetadata TryGetGlobalOptionSetByName(string globalChoiceName)
+        {
+            if (string.IsNullOrWhiteSpace(globalChoiceName))
+            {
+                return null;
+            }
+
+            var normalizedName = globalChoiceName.Trim();
+
+            try
+            {
+                var request = new RetrieveOptionSetRequest
+                {
+                    Name = normalizedName
+                };
+
+                var response = (RetrieveOptionSetResponse)service.Execute(request);
+                var byName = response?.OptionSetMetadata as OptionSetMetadata;
+                if (byName != null)
+                {
+                    return byName;
+                }
+            }
+            catch
+            {
+                // Continua con fallback su display name.
+            }
+
+            try
+            {
+                var requestAll = new RetrieveAllOptionSetsRequest();
+                var responseAll = (RetrieveAllOptionSetsResponse)service.Execute(requestAll);
+                var allOptionSets = responseAll?.OptionSetMetadata
+                    ?.OfType<OptionSetMetadata>()
+                    .ToList() ?? new List<OptionSetMetadata>();
+
+                var matched = allOptionSets.FirstOrDefault(os =>
+                    string.Equals(os?.Name, normalizedName, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(os?.DisplayName?.UserLocalizedLabel?.Label, normalizedName, StringComparison.OrdinalIgnoreCase)
+                    || (os?.DisplayName?.LocalizedLabels?.Any(label =>
+                        string.Equals(label?.Label, normalizedName, StringComparison.OrdinalIgnoreCase)) ?? false));
+
+                return matched;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         private static string NormalizeColumnType(string columnType)
@@ -646,8 +887,13 @@ namespace DataModelDevOpsExtractor.Repository
             var decoded = WebUtility.HtmlDecode(additionalData);
             // Preserva le righe principali anche quando arrivano da HTML (es. Options:<br>0: Active...).
             var withLineBreaks = Regex.Replace(decoded, "<\\s*br\\s*/?\\s*>", "\n", RegexOptions.IgnoreCase);
-            var withoutTags = Regex.Replace(withLineBreaks, "<[^>]+>", " ");
-            var withoutInvisibleChars = Regex.Replace(withoutTags, "[\u00A0\u200B\u200C\u200D\uFEFF]", " ");
+            // Rimuove solo i tag HTML noti, preservando i token funzionali tipo <Italiano> / <English>.
+            var withoutKnownHtmlTags = Regex.Replace(
+                withLineBreaks,
+                "<\\s*/?\\s*(p|div|span|strong|em|b|i|u|ul|ol|li|table|thead|tbody|tr|td|th)\\b[^>]*>",
+                " ",
+                RegexOptions.IgnoreCase);
+            var withoutInvisibleChars = Regex.Replace(withoutKnownHtmlTags, "[\u00A0\u200B\u200C\u200D\uFEFF]", " ");
             var normalizedLineEndings = withoutInvisibleChars.Replace("\r\n", "\n").Replace('\r', '\n');
 
             var cleanedLines = Regex.Split(normalizedLineEndings, "\\n")
@@ -753,12 +999,10 @@ namespace DataModelDevOpsExtractor.Repository
                         var optionInline = optionsHeaderMatch.Groups[1].Value?.Trim();
                         if (!string.IsNullOrWhiteSpace(optionInline))
                         {
-                            var inlineMatch = Regex.Match(optionInline, @"^(\d+)\s*:\s*(.+?)\s*$");
-                            if (inlineMatch.Success
-                                && int.TryParse(inlineMatch.Groups[1].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var inlineValue)
-                                && !string.IsNullOrWhiteSpace(inlineMatch.Groups[2].Value))
+                            var inlineOption = ParseLocalOptionLine(optionInline);
+                            if (inlineOption != null)
                             {
-                                yield return new OptionMetadata(new Label(inlineMatch.Groups[2].Value.Trim(), 1033), inlineValue);
+                                yield return inlineOption;
                             }
                         }
                     }
@@ -771,24 +1015,13 @@ namespace DataModelDevOpsExtractor.Repository
                     break;
                 }
 
-                var match = Regex.Match(line, @"^\s*(\d+)\s*:\s*(.+?)\s*$");
-                if (!match.Success)
+                var option = ParseLocalOptionLine(line);
+                if (option == null)
                 {
                     continue;
                 }
 
-                if (!int.TryParse(match.Groups[1].Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
-                {
-                    continue;
-                }
-
-                var label = match.Groups[2].Value.Trim();
-                if (string.IsNullOrWhiteSpace(label))
-                {
-                    continue;
-                }
-
-                yield return new OptionMetadata(new Label(label, 1033), value);
+                yield return option;
             }
         }
 

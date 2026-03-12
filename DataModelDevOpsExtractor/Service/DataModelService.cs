@@ -147,13 +147,13 @@ namespace DataModelDevOpsExtractor.Service
                 sb.AppendLine($"## Table: {group.Key}");
                 sb.AppendLine($"Name EN : {first.TableDisplayNameEn}");
                 sb.AppendLine($"Name IT : {first.TableDisplayNameIt}");
-                sb.AppendLine("| System | Table | Schema name | Display name (IT) | Display name (EN) | Description | Column type | Lookup table | Additional data | Requirement level | Usage |");
-                sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|");
+                sb.AppendLine("| System | Table | Schema name | Display name (IT) | Display name (EN) | Description | Column type | Lookup table | Additional data | Requirement level | Primary | Usage |");
+                sb.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|");
 
                 foreach (var item in group)
                 {
                     var row = item.Row ?? new string[0];
-                    var values = new string[11];
+                    var values = new string[12];
                     for (var index = 0; index < values.Length; index++)
                     {
                         var value = row.ElementAtOrDefault(index) ?? string.Empty;
@@ -179,6 +179,7 @@ namespace DataModelDevOpsExtractor.Service
             string currentTableName = null;
             string currentNameEn = null;
             string currentNameIt = null;
+            HeaderMapping currentHeaderMapping = null;
 
             foreach (var rawLine in lines)
             {
@@ -191,6 +192,7 @@ namespace DataModelDevOpsExtractor.Service
                     currentTableName = line.Substring("## Table:".Length).Trim();
                     currentNameEn = null;
                     currentNameIt = null;
+                    currentHeaderMapping = null;
                     continue;
                 }
 
@@ -216,13 +218,43 @@ namespace DataModelDevOpsExtractor.Service
                 if (string.Equals(cells.ElementAtOrDefault(0), "System", StringComparison.OrdinalIgnoreCase) &&
                     string.Equals(cells.ElementAtOrDefault(1), "Table", StringComparison.OrdinalIgnoreCase))
                 {
+                    currentHeaderMapping = BuildHeaderMapping(cells);
                     continue;
                 }
 
-                var row = new string[11];
-                for (var index = 0; index < row.Length; index++)
+                var row = new string[12];
+                if (currentHeaderMapping == null)
                 {
-                    row[index] = index < cells.Length ? cells[index] : string.Empty;
+                    // Backward compatibility: fixed legacy column order.
+                    for (var index = 0; index < row.Length; index++)
+                    {
+                        row[index] = index < cells.Length ? cells[index] : string.Empty;
+                    }
+
+                    // Legacy layout had Usage at index 10 and no Primary column.
+                    if (cells.Length == 11)
+                    {
+                        row[11] = row[10];
+                        row[10] = string.Empty;
+                    }
+                }
+                else
+                {
+                    row[0] = GetCellValue(cells, currentHeaderMapping.SystemIndex);
+                    row[1] = GetCellValue(cells, currentHeaderMapping.TableIndex);
+                    row[2] = GetCellValue(cells, currentHeaderMapping.SchemaNameIndex);
+
+                    var displayByLanguage = currentHeaderMapping.DisplayNameIndexesByLanguage;
+                    row[3] = GetPreferredDisplayName(cells, displayByLanguage, "IT");
+                    row[4] = GetPreferredDisplayName(cells, displayByLanguage, "EN");
+
+                    row[5] = GetCellValue(cells, currentHeaderMapping.DescriptionIndex);
+                    row[6] = GetCellValue(cells, currentHeaderMapping.ColumnTypeIndex);
+                    row[7] = GetCellValue(cells, currentHeaderMapping.LookupTableIndex);
+                    row[8] = GetCellValue(cells, currentHeaderMapping.AdditionalDataIndex);
+                    row[9] = GetCellValue(cells, currentHeaderMapping.RequirementLevelIndex);
+                    row[10] = GetCellValue(cells, currentHeaderMapping.PrimaryIndex);
+                    row[11] = GetCellValue(cells, currentHeaderMapping.UsageIndex);
                 }
 
                 var tableName = !string.IsNullOrWhiteSpace(currentTableName)
@@ -243,6 +275,115 @@ namespace DataModelDevOpsExtractor.Service
             }
 
             return result;
+        }
+
+        private static string GetPreferredDisplayName(string[] cells, Dictionary<string, int> displayIndexesByLanguage, string preferredLanguage)
+        {
+            if (displayIndexesByLanguage == null || displayIndexesByLanguage.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            if (displayIndexesByLanguage.TryGetValue(preferredLanguage, out var preferredIndex))
+            {
+                return GetCellValue(cells, preferredIndex);
+            }
+
+            var firstAvailable = displayIndexesByLanguage.Values.FirstOrDefault();
+            return GetCellValue(cells, firstAvailable);
+        }
+
+        private static string GetCellValue(string[] cells, int index)
+        {
+            return index >= 0 && index < cells.Length ? cells[index] : string.Empty;
+        }
+
+        private static HeaderMapping BuildHeaderMapping(string[] headers)
+        {
+            var mapping = new HeaderMapping
+            {
+                SystemIndex = FindHeaderIndex(headers, "system"),
+                TableIndex = FindHeaderIndex(headers, "table"),
+                SchemaNameIndex = FindHeaderIndex(headers, "schemaname"),
+                DescriptionIndex = FindHeaderIndex(headers, "description"),
+                ColumnTypeIndex = FindHeaderIndex(headers, "columntype"),
+                LookupTableIndex = FindHeaderIndex(headers, "lookuptable"),
+                AdditionalDataIndex = FindHeaderIndex(headers, "additionaldata"),
+                RequirementLevelIndex = FindHeaderIndex(headers, "requirementlevel"),
+                PrimaryIndex = FindHeaderIndex(headers, "primary"),
+                UsageIndex = FindHeaderIndex(headers, "usage")
+            };
+
+            var displayNameMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            for (var index = 0; index < headers.Length; index++)
+            {
+                var header = headers[index] ?? string.Empty;
+                var match = Regex.Match(header, @"^\s*Display\s*name\s*\(([^\)]+)\)\s*$", RegexOptions.IgnoreCase);
+                if (!match.Success)
+                {
+                    continue;
+                }
+
+                var language = match.Groups[1].Value.Trim().ToUpperInvariant();
+                if (!string.IsNullOrWhiteSpace(language) && !displayNameMap.ContainsKey(language))
+                {
+                    displayNameMap[language] = index;
+                }
+            }
+
+            // Legacy fallback when the markdown still uses fixed columns without explicit language token parsing.
+            if (displayNameMap.Count == 0)
+            {
+                var displayNameItIndex = FindHeaderIndex(headers, "displayname(it)");
+                var displayNameEnIndex = FindHeaderIndex(headers, "displayname(en)");
+
+                if (displayNameItIndex >= 0)
+                {
+                    displayNameMap["IT"] = displayNameItIndex;
+                }
+
+                if (displayNameEnIndex >= 0)
+                {
+                    displayNameMap["EN"] = displayNameEnIndex;
+                }
+            }
+
+            mapping.DisplayNameIndexesByLanguage = displayNameMap;
+            return mapping;
+        }
+
+        private static int FindHeaderIndex(string[] headers, string expected)
+        {
+            var normalizedExpected = NormalizeHeader(expected);
+            for (var index = 0; index < headers.Length; index++)
+            {
+                if (NormalizeHeader(headers[index]) == normalizedExpected)
+                {
+                    return index;
+                }
+            }
+
+            return -1;
+        }
+
+        private static string NormalizeHeader(string value)
+        {
+            return Regex.Replace((value ?? string.Empty).Trim().ToLowerInvariant(), "\\s+", string.Empty);
+        }
+
+        private sealed class HeaderMapping
+        {
+            public int SystemIndex { get; set; }
+            public int TableIndex { get; set; }
+            public int SchemaNameIndex { get; set; }
+            public int DescriptionIndex { get; set; }
+            public int ColumnTypeIndex { get; set; }
+            public int LookupTableIndex { get; set; }
+            public int AdditionalDataIndex { get; set; }
+            public int RequirementLevelIndex { get; set; }
+            public int PrimaryIndex { get; set; }
+            public int UsageIndex { get; set; }
+            public Dictionary<string, int> DisplayNameIndexesByLanguage { get; set; }
         }
 
         private static string ExtractTaskName(string description, string tableName, string prefix, string language)

@@ -26,19 +26,21 @@ namespace DataModelDevOpsExtractor.Repository
 
         public EntityCollection getTableByName(string tableName)
         {
+            var normalizedTableName = NormalizeSchemaName(tableName);
             var recordQuery = new QueryExpression(prefixEnv + "table");
             recordQuery.ColumnSet.AllColumns = true;
             recordQuery.NoLock = true;
-            recordQuery.Criteria.AddCondition(prefixEnv + "name", ConditionOperator.Equal, tableName);
+            recordQuery.Criteria.AddCondition(prefixEnv + "name", ConditionOperator.Equal, normalizedTableName);
             return service.RetrieveMultiple(recordQuery);
         }
 
         public bool ColumnExists(string columnName, Guid tableId)
         {
+            var normalizedColumnName = NormalizeSchemaName(columnName);
             var recordQuery = new QueryExpression(prefixEnv + "column");
             recordQuery.ColumnSet = new ColumnSet(false);
             recordQuery.NoLock = true;
-            recordQuery.Criteria.AddCondition(prefixEnv + "schemaname", ConditionOperator.Equal, columnName);
+            recordQuery.Criteria.AddCondition(prefixEnv + "schemaname", ConditionOperator.Equal, normalizedColumnName);
             recordQuery.Criteria.AddCondition(prefixEnv + "tableid", ConditionOperator.Equal, tableId);
             var results = service.RetrieveMultiple(recordQuery);
             return results.Entities.Count > 0;
@@ -46,16 +48,17 @@ namespace DataModelDevOpsExtractor.Repository
 
         public Entity GetOrCreateTable(string tableName, string system, string nameEn, string nameIt)
         {
-            var results = getTableByName(tableName);
+            var normalizedTableName = NormalizeSchemaName(tableName);
+            var results = getTableByName(normalizedTableName);
             if (results.Entities.Count > 1)
             {
-                throw new Exception($"More than one record found for entity {prefixEnv + "table"} with the specified key values {tableName}.");
+                throw new Exception($"More than one record found for entity {prefixEnv + "table"} with the specified key values {normalizedTableName}.");
             }
             var entity = results.Entities.FirstOrDefault();
             if(entity == null)
             {
                 entity = new Entity(prefixEnv + "table");
-                entity[prefixEnv + "name"] = tableName;
+                entity[prefixEnv + "name"] = normalizedTableName;
                 entity[prefixEnv + "systemid"] = system;
                 entity[prefixEnv + "label_en"] = nameEn;
                 entity[prefixEnv + "label_it"] = nameIt;
@@ -78,16 +81,19 @@ namespace DataModelDevOpsExtractor.Repository
             string usage
             )
         {
+            var normalizedColumnName = NormalizeSchemaName(columnName);
+            var normalizedLookupTable = NormalizeSchemaName(lookupTable);
+
             var recordQuery = new QueryExpression(prefixEnv + "column");
             recordQuery.ColumnSet.AllColumns = true;
             recordQuery.NoLock = true;
-            recordQuery.Criteria.AddCondition(prefixEnv + "schemaname", ConditionOperator.Equal, columnName);
+            recordQuery.Criteria.AddCondition(prefixEnv + "schemaname", ConditionOperator.Equal, normalizedColumnName);
             recordQuery.Criteria.AddCondition(prefixEnv + "tableid", ConditionOperator.Equal, tableEn.Id);
             var results = service.RetrieveMultiple(recordQuery);
 
             if (results.Entities.Count > 1)
             {
-                throw new Exception($"More than one record found for entity {prefixEnv + "column"} with the specified key values {columnName}, {tableEn.Id}.");
+                throw new Exception($"More than one record found for entity {prefixEnv + "column"} with the specified key values {normalizedColumnName}, {tableEn.Id}.");
             }
             var entity = results.Entities.FirstOrDefault();
             if (entity == null)
@@ -98,10 +104,10 @@ namespace DataModelDevOpsExtractor.Repository
                 entity = new Entity(prefixEnv + "column");
                 if (!string.IsNullOrEmpty(lookupTable) && colTypeEnum == ColumnTypeCode.Lookup)
                 {
-                    var resultsLookupTable = getTableByName(lookupTable);
+                    var resultsLookupTable = getTableByName(normalizedLookupTable);
                     if (resultsLookupTable == null)
                     {
-                        throw new Exception($"Lookup table not found {lookupTable}.");
+                        throw new Exception($"Lookup table not found {normalizedLookupTable}.");
                     }
                     entity[prefixEnv + "lookuptableid"] = resultsLookupTable.Entities.FirstOrDefault()?.ToEntityReference();
                 }
@@ -114,7 +120,7 @@ namespace DataModelDevOpsExtractor.Repository
                     usageVal = (int)usageEnum;
 
                 entity[prefixEnv + "tableid"] = tableEn.ToEntityReference();
-                entity[prefixEnv + "schemaname"] = columnName;
+                entity[prefixEnv + "schemaname"] = normalizedColumnName;
                 entity[prefixEnv + "columntypecode"] = new OptionSetValue((int)colTypeVal);
                 entity[prefixEnv + "additionaldata"] = additionalData;
                 entity[prefixEnv + "displayname_it"] = displayNameIt;
@@ -128,6 +134,11 @@ namespace DataModelDevOpsExtractor.Repository
             }
 
             return entity;
+        }
+
+        private static string NormalizeSchemaName(string value)
+        {
+            return (value ?? string.Empty).Trim().ToLowerInvariant();
         }
 
         private static string NormalizeEnumToken(string value)
