@@ -86,7 +86,7 @@
     <Reference Include="Microsoft.Rest.ClientRuntime, Version=2.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.CrmSdk.XrmTooling.CoreAssembly.9.1.1.32\lib\net462\Microsoft.Rest.ClientRuntime.dll</HintPath>
     </Reference>
-     <Reference Include="Microsoft.TeamFoundation.Build2.WebApi, Version=19.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
+    <Reference Include="Microsoft.TeamFoundation.Build2.WebApi, Version=19.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.TeamFoundationServer.Client.19.225.2\lib\net472\Microsoft.TeamFoundation.Build2.WebApi.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.TeamFoundation.Common, Version=19.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
@@ -192,7 +192,6 @@
       <HintPath>..\packages\NuGet.Versioning.5.9.3\lib\net472\NuGet.Versioning.dll</HintPath>
     </Reference>
     <Reference Include="PresentationFramework" />
-    
     <Reference Include="ScintillaNET, Version=3.6.3.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>..\packages\jacobslusser.ScintillaNET.3.6.3\lib\net40\ScintillaNET.dll</HintPath>
     </Reference>
@@ -201,7 +200,6 @@
     <Reference Include="System.Activities.Presentation" />
     <Reference Include="System.ComponentModel.Composition" />
     <Reference Include="System.Core" />
-    
     <Reference Include="System.IO, Version=4.1.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\System.IO.4.3.0\lib\net462\System.IO.dll</HintPath>
       <Private>True</Private>
@@ -309,6 +307,7 @@
     <Compile Include="Model\ColumnTypeCode.cs" />
     <Compile Include="Model\DataModelTaskRow.cs" />
     <Compile Include="Model\RequirementLevelCode.cs" />
+    <Compile Include="Model\UploadStatusEntry.cs" />
     <Compile Include="Model\UsageCode.cs" />
     <Compile Include="Repository\DataModelRepository.cs" />
     <Compile Include="Repository\EnvironmentRepository.cs" />
@@ -326,6 +325,10 @@
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Repository\DevOpsRepository.cs" />
+    <Compile Include="Service\MarkdownUtilitiesService.cs" />
+    <Compile Include="Service\PrimaryAttributeResolverService.cs" />
+    <Compile Include="Service\UploadProgressService.cs" />
+    <Compile Include="Service\UploadSummaryService.cs" />
     <Compile Include="Service\UserConfig.cs" />
     <EmbeddedResource Include="PluginControl.resx">
       <DependentUpon>PluginControl.cs</DependentUpon>
