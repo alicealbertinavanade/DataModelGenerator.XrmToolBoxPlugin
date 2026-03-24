@@ -1,4 +1,5 @@
-﻿namespace DataModelDevOpsExtractor.Tests;
+﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+
 
 [TestClass]
 public sealed class Test1

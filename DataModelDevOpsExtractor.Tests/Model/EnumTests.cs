@@ -21,8 +21,8 @@ namespace DataModelDevOpsExtractor.Tests.Model
         {
             // Assert
             Assert.IsTrue(Enum.IsDefined(typeof(RequirementLevelCode), (int)RequirementLevelCode.None));
-            Assert.IsTrue(Enum.IsDefined(typeof(RequirementLevelCode), (int)RequirementLevelCode.SystemRequired));
-            Assert.IsTrue(Enum.IsDefined(typeof(RequirementLevelCode), (int)RequirementLevelCode.ApplicationRequired));
+            Assert.IsTrue(Enum.IsDefined(typeof(RequirementLevelCode), (int)RequirementLevelCode.Required));
+            Assert.IsTrue(Enum.IsDefined(typeof(RequirementLevelCode), (int)RequirementLevelCode.RequiredConditional));
         }
 
         [TestMethod]
@@ -30,8 +30,8 @@ namespace DataModelDevOpsExtractor.Tests.Model
         {
             // Assert
             Assert.IsTrue(Enum.IsDefined(typeof(UsageCode), (int)UsageCode.IN_USE));
-            Assert.IsTrue(Enum.IsDefined(typeof(UsageCode), (int)UsageCode.DEPRECATED));
-            Assert.IsTrue(Enum.IsDefined(typeof(UsageCode), (int)UsageCode.TO_BE_CREATED));
+            Assert.IsTrue(Enum.IsDefined(typeof(UsageCode), (int)UsageCode.REMOVED));
+            Assert.IsTrue(Enum.IsDefined(typeof(UsageCode), (int)UsageCode.OBSOLETE_TO_BE_REMOVED));
         }
 
         [TestMethod]
@@ -68,7 +68,7 @@ namespace DataModelDevOpsExtractor.Tests.Model
 
             // Assert
             Assert.IsTrue(result);
-            Assert.AreEqual(RequirementLevelCode.ApplicationRequired, parsed);
+            Assert.AreEqual(RequirementLevelCode.Required, parsed);
         }
 
         [TestMethod]

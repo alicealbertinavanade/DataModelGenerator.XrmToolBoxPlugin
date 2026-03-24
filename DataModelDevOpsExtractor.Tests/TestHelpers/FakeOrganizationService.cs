@@ -12,7 +12,6 @@ namespace DataModelDevOpsExtractor.Tests.TestHelpers
     public class FakeOrganizationService : IOrganizationService
     {
         private readonly Dictionary<string, List<Entity>> _entities = new Dictionary<string, List<Entity>>();
-        private int _idCounter = 1;
 
         public Guid Create(Entity entity)
         {
@@ -90,7 +89,7 @@ namespace DataModelDevOpsExtractor.Tests.TestHelpers
                 return new EntityCollection();
             }
 
-            var results = _entities[queryExpression.EntityName].AsQueryable();
+            var results = _entities[queryExpression.EntityName].AsEnumerable();
 
             foreach (var condition in queryExpression.Criteria.Conditions)
             {
