@@ -157,24 +157,44 @@ namespace DataModelDevOpsExtractor
 
         private async void buttonUploadDataModel_Click(object sender, EventArgs e)
         {
-            HideUploadProgressForOtherAction();
             HideUploadSummary();
+            ResetUploadProgress();
+            buttonUploadDataModel.Enabled = false;
+            SetUploadProgress(0, "Avvio upload");
 
-            if (!CanStartUploadWithCurrentMarkdown())
+            try
             {
-                return;
-            }
+                if (!CanStartUploadWithCurrentMarkdown())
+                {
+                    ResetUploadProgress();
+                    return;
+                }
 
-            // Usa la seconda connection string (Data Model Env)
-            var dataModelEnvConnection = this.AdditionalConnectionDetails;
-            if (dataModelEnvConnection.FirstOrDefault() == null)
+                // Usa la seconda connection string (Data Model Env)
+                var dataModelEnvConnection = this.AdditionalConnectionDetails;
+                if (dataModelEnvConnection.FirstOrDefault() == null)
+                {
+                    MessageBox.Show("Connection string Data Model Env mancante. Configurala prima dal menu.");
+                    ResetUploadProgress();
+                    return;
+                }
+
+                var dataModelCrmService = dataModelEnvConnection.FirstOrDefault()?.GetCrmServiceClient();
+                var completedWithoutErrors = await UploadDataModelToConnection(dataModelCrmService, "Data Model Env");
+                if (!completedWithoutErrors)
+                {
+                    ResetUploadProgress();
+                }
+            }
+            catch (Exception ex)
             {
-                MessageBox.Show("Connection string Data Model Env mancante. Configurala prima dal menu.");
-                return;
+                ResetUploadProgress();
+                MessageBox.Show($"Errore durante l'upload su Data Model Env: {ex.Message}");
             }
-
-            var dataModelCrmService = dataModelEnvConnection.FirstOrDefault()?.GetCrmServiceClient();
-            await UploadDataModelToConnection(dataModelCrmService, "Data Model Env");
+            finally
+            {
+                buttonUploadDataModel.Enabled = true;
+            }
         }
 
         private async void buttonUploadAmbiente_Click(object sender, EventArgs e)
@@ -215,19 +235,19 @@ namespace DataModelDevOpsExtractor
             }
         }
 
-        private async Task UploadDataModelToConnection(IOrganizationService targetService, string targetName)
+        private async Task<bool> UploadDataModelToConnection(IOrganizationService targetService, string targetName)
         {
             if (targetService == null)
             {
                 MessageBox.Show($"Connessione target non disponibile: {targetName}.");
-                return;
+                return false;
             }
 
             var prefixEnv = MarkdownUtilitiesService.NormalizePrefix(txtPrefix.Text);
             if (string.IsNullOrWhiteSpace(prefixEnv))
             {
                 MessageBox.Show("Prefix mancante. Inserisci il prefix e salva le configurazioni.");
-                return;
+                return false;
             }
 
             var dataModelService = new DataModelService();
@@ -235,18 +255,25 @@ namespace DataModelDevOpsExtractor
             if (allRows == null || allRows.Count == 0)
             {
                 MessageBox.Show("Markdown vuoto o non valido. Premi Load Markdown e verifica il contenuto prima di caricare.");
-                return;
+                return false;
             }
+
+            SetUploadProgress(5, "Validazione dati");
 
             var dataModelRepo = new DataModelRepository(targetService, prefixEnv);
             var statusEntries = new List<UploadStatusEntry>();
             var trackedTables = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var totalRows = allRows.Count;
 
-            foreach (var taskRow in allRows)
+            SetUploadProgress(10, $"Elaborazione 0/{totalRows}");
+
+            for (var rowIndex = 0; rowIndex < totalRows; rowIndex++)
             {
+                var taskRow = allRows[rowIndex];
                 var row = taskRow.Row;
                 if (row == null)
                 {
+                    UpdateProgressFromRow(rowIndex + 1, totalRows);
                     continue;
                 }
 
@@ -275,6 +302,7 @@ namespace DataModelDevOpsExtractor
                         Status = UploadResultStatus.Error,
                         ErrorMessage = "Table o Schema name mancante nel markdown"
                     });
+                    UpdateProgressFromRow(rowIndex + 1, totalRows);
                     continue;
                 }
 
@@ -323,6 +351,7 @@ namespace DataModelDevOpsExtractor
                         Status = UploadResultStatus.Error,
                         ErrorMessage = $"Tabella non disponibile: {ex.Message}"
                     });
+                    UpdateProgressFromRow(rowIndex + 1, totalRows);
                     continue;
                 }
 
@@ -336,6 +365,7 @@ namespace DataModelDevOpsExtractor
                         Status = UploadResultStatus.Error,
                         ErrorMessage = "Tabella non creata o non trovata"
                     });
+                    UpdateProgressFromRow(rowIndex + 1, totalRows);
                     continue;
                 }
 
@@ -378,10 +408,22 @@ namespace DataModelDevOpsExtractor
                     });
                 }
 
+                UpdateProgressFromRow(rowIndex + 1, totalRows);
             }
 
+            SetUploadProgress(98, "Generazione riepilogo");
             ShowUploadSummary(statusEntries);
+
+            var hasErrors = statusEntries.Any(s => s.Status == UploadResultStatus.Error);
+            if (hasErrors)
+            {
+                MessageBox.Show($"Upload su {targetName} completato con errori. Controlla il riepilogo nel pannello laterale.");
+                return false;
+            }
+
+            SetUploadProgress(100, "Completato");
             MessageBox.Show($"Upload completato su {targetName}. Riepilogo disponibile nel pannello laterale.");
+            return true;
         }
 
         private async Task<bool> UploadDataModelToEnvConnection(IOrganizationService targetService, string targetName, string solutionName)
