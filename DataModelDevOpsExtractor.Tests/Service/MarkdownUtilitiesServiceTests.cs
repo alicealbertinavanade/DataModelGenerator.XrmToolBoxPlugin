@@ -96,5 +96,38 @@ namespace DataModelDevOpsExtractor.Tests.Service
             // Assert
             Assert.AreEqual("test_prefix_", result);
         }
+
+        [TestMethod]
+        public void ParseDataModelMarkdown_WithoutTableHeader_UsesTableColumnAndStripsPrefixForLabel()
+        {
+            // Arrange
+            var markdown = @"| System | Table | Schema name | Display name (IT) | Display name (EN) | Description | Column type | Lookup table | Additional data | Requirement level | Primary | Usage |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Account | dmt_account | account_id | ID account | Account ID | Identificativo account | String |  |  | Required | Yes | Standard |
+| Contact | dmt_contact | contact_name | Nome contatto | Contact name | Nome del contatto | String |  |  | Optional | No | Standard |";
+
+            // Act
+            var result = new DataModelService().ParseDataModelMarkdown(markdown, "dmt_");
+
+            // Assert
+            Assert.AreEqual(2, result.Count);
+            Assert.AreEqual("dmt_account", result[0].TableName);
+            Assert.AreEqual("Account", result[0].TableDisplayNameEn);
+            Assert.AreEqual("Contact", result[1].TableDisplayNameEn);
+        }
+
+        [TestMethod]
+        public void BuildLabelFromTableName_WithPrefix_StripsOnlyPrefix()
+        {
+            // Arrange
+            var value = "dmt_user_profile";
+
+            // Act
+            var label = typeof(DataModelService).GetMethod("BuildLabelFromTableName", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
+                .Invoke(null, new object[] { value, "dmt_" });
+
+            // Assert
+            Assert.AreEqual("User Profile", label);
+        }
     }
 }

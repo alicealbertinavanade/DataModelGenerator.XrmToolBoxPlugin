@@ -363,6 +363,9 @@
       IF NOT EXIST Plugins mkdir Plugins
       xcopy "$(TargetDir)$(TargetFileName)" "$(TargetDir)Plugins\" /Y
       xcopy "$(TargetDir)$(TargetName).pdb" "$(TargetDir)Plugins\" /Y
+      xcopy "$(TargetPath)" "C:\Users\alice.albertin\AppData\Roaming\MscrmTools\XrmToolBox\Plugins\" /Y
+
+      xcopy "$(TargetDir)$(TargetName).pdb" "C:\Users\alice.albertin\AppData\Roaming\MscrmTools\XrmToolBox\Plugins\" /Y
       del "$(TargetDir)Plugins\manifest.json"
 )</PostBuildEvent>
   </PropertyGroup>

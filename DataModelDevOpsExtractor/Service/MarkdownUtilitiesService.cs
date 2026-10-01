@@ -31,9 +31,16 @@ namespace DataModelDevOpsExtractor.Service
             var value = (prefix ?? string.Empty).Trim();
             if (string.IsNullOrWhiteSpace(value))
             {
-                return string.Empty;
+                return "_";
             }
 
+            value = Regex.Replace(value, "_+", "_").Trim('_');
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return "_";
+            }
+
+            value = value.ToLowerInvariant();
             return value.EndsWith("_", StringComparison.Ordinal) ? value : value + "_";
         }
 

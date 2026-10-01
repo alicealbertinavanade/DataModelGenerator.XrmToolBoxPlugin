@@ -257,9 +257,7 @@ namespace DataModelDevOpsExtractor.Service
                     row[11] = GetCellValue(cells, currentHeaderMapping.UsageIndex);
                 }
 
-                var tableName = !string.IsNullOrWhiteSpace(currentTableName)
-                    ? currentTableName
-                    : row.ElementAtOrDefault(1);
+                var tableName = ResolveTableName(currentTableName, row);
 
                 var fallbackLabel = BuildLabelFromTableName(tableName, prefix);
                 var nameEn = string.IsNullOrWhiteSpace(currentNameEn) ? fallbackLabel : currentNameEn;
@@ -419,6 +417,22 @@ namespace DataModelDevOpsExtractor.Service
             return line.Substring(separatorIndex + 1).Trim();
         }
 
+        private static string ResolveTableName(string currentTableName, string[] row)
+        {
+            if (!string.IsNullOrWhiteSpace(currentTableName))
+            {
+                return currentTableName.Trim();
+            }
+
+            if (row == null || row.Length <= 1)
+            {
+                return string.Empty;
+            }
+
+            var tableName = row[1]?.Trim();
+            return string.IsNullOrWhiteSpace(tableName) ? string.Empty : tableName;
+        }
+
         private static string BuildLabelFromTableName(string tableName, string prefix = null)
         {
             if (string.IsNullOrWhiteSpace(tableName))
@@ -429,12 +443,6 @@ namespace DataModelDevOpsExtractor.Service
             if (!string.IsNullOrWhiteSpace(prefix) && normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             {
                 normalized = normalized.Substring(prefix.Length);
-            }
-
-            var prefixSeparatorIndex = normalized.IndexOf('_');
-            if (prefixSeparatorIndex >= 0 && prefixSeparatorIndex < normalized.Length - 1)
-            {
-                normalized = normalized.Substring(prefixSeparatorIndex + 1);
             }
 
             normalized = normalized.Replace("_", " ").Replace("-", " ");
