@@ -24,6 +24,9 @@ namespace DataModelDevOpsExtractor
         // Proprietà richieste da MultipleConnectionsPluginControlBase
         public new IOrganizationService Service { get; set; }
         public new ConnectionDetail ConnectionDetail { get; set; }
+        private IOrganizationService primaryService;
+        private ConnectionDetail primaryConnectionDetail;
+        private ConnectionDetail dataModelEnvConnectionDetail;
         public new event EventHandler OnRequestConnection;
         public new event EventHandler OnCloseTool;
         public new event EventHandler OnWorkAsync;
@@ -46,17 +49,29 @@ namespace DataModelDevOpsExtractor
         private void ToolStripBtnDataModelEnv_Click(object sender, EventArgs e)
         {
             HideUploadProgressForOtherAction();
+            var existingConnections = this.AdditionalConnectionDetails?.ToList() ?? new List<ConnectionDetail>();
             AddAdditionalOrganization();
 
-            if (this.AdditionalConnectionDetails.Count == 0)
+            var addedConnection = this.AdditionalConnectionDetails?
+                .FirstOrDefault(connection => !existingConnections.Any(existing => ReferenceEquals(existing, connection)));
+
+            if (addedConnection != null)
             {
-                return;
+                foreach (var existingConnection in this.AdditionalConnectionDetails
+                    .Where(connection => !ReferenceEquals(connection, addedConnection))
+                    .ToList())
+                {
+                    RemoveAdditionalOrganization(existingConnection);
+                }
+
+                dataModelEnvConnectionDetail = addedConnection;
+            }
+            else if (dataModelEnvConnectionDetail == null)
+            {
+                dataModelEnvConnectionDetail = this.AdditionalConnectionDetails?.FirstOrDefault();
             }
 
-            if (this.AdditionalConnectionDetails != null && this.AdditionalConnectionDetails.Count > 1)
-                this.RemoveAdditionalOrganization(this.AdditionalConnectionDetails[0]);
-
-            toolStripBtnDataModelEnv.Text = $"Data Model Env: {this.AdditionalConnectionDetails[0].ConnectionName}";
+            UpdateDataModelEnvButtonLabel();
         }
         private void BtnSave_Click(object sender, EventArgs e)
         {
@@ -123,6 +138,12 @@ namespace DataModelDevOpsExtractor
             ConnectionDetail = detail;
             base.UpdateConnection(newService, detail, actionName, parameter);
 
+            if (primaryService == null && newService != null)
+            {
+                primaryService = newService;
+                primaryConnectionDetail = detail;
+            }
+
             UpdateMainConnectionButtonLabel();
             _ = TryPopulateMarkdownTemplateFromPrimaryConnectionAsync();
         }
@@ -170,16 +191,14 @@ namespace DataModelDevOpsExtractor
                     return;
                 }
 
-                // Usa la seconda connection string (Data Model Env)
-                var dataModelEnvConnection = this.AdditionalConnectionDetails;
-                if (dataModelEnvConnection.FirstOrDefault() == null)
+                if (dataModelEnvConnectionDetail == null)
                 {
-                    MessageBox.Show("Connection string Data Model Env mancante. Configurala prima dal menu.");
+                    MessageBox.Show("Connessione Data Model Env mancante. Selezionala prima dal menu.");
                     ResetUploadProgress();
                     return;
                 }
 
-                var dataModelCrmService = dataModelEnvConnection.FirstOrDefault()?.GetCrmServiceClient();
+                var dataModelCrmService = dataModelEnvConnectionDetail.GetCrmServiceClient();
                 var completedWithoutErrors = await UploadDataModelToConnection(dataModelCrmService, "Data Model Env");
                 if (!completedWithoutErrors)
                 {
@@ -211,14 +230,14 @@ namespace DataModelDevOpsExtractor
 
             try
             {
-                if (Service == null)
+                if (primaryService == null)
                 {
                     MessageBox.Show("Connessione Ambiente mancante. Connettiti all'ambiente prima di eseguire l'upload.");
                     ResetUploadProgress();
                     return;
                 }
 
-                var completedWithoutErrors = await UploadDataModelToEnvConnection(Service, "Ambiente", txtSolutionName.Text.Trim());
+                var completedWithoutErrors = await UploadDataModelToEnvConnection(primaryService, "Ambiente", txtSolutionName.Text.Trim());
                 if (!completedWithoutErrors)
                 {
                     ResetUploadProgress();
@@ -774,26 +793,46 @@ namespace DataModelDevOpsExtractor
 
         private async void PluginControl_Load(object sender, EventArgs e)
         {
+            if (primaryService == null && Service != null)
+            {
+                primaryService = Service;
+                primaryConnectionDetail = ConnectionDetail;
+            }
+
+            if (dataModelEnvConnectionDetail == null)
+            {
+                dataModelEnvConnectionDetail = this.AdditionalConnectionDetails?.FirstOrDefault();
+            }
+
             UpdateMainConnectionButtonLabel();
+            UpdateDataModelEnvButtonLabel();
             await TryPopulateMarkdownTemplateFromPrimaryConnectionAsync();
         }
 
         private void UpdateMainConnectionButtonLabel()
         {
-            var mainConnName = this.ConnectionDetail?.ConnectionName ?? "Env";
+            var mainConnName = primaryConnectionDetail?.ConnectionName ?? "Env";
             buttonUploadAmbiente.Text = $"Upload to {mainConnName}";
+        }
+
+        private void UpdateDataModelEnvButtonLabel()
+        {
+            var connectionName = dataModelEnvConnectionDetail?.ConnectionName;
+            toolStripBtnDataModelEnv.Text = string.IsNullOrWhiteSpace(connectionName)
+                ? "Data Model Env: Seleziona"
+                : $"Data Model Env: {connectionName}";
         }
 
         private async Task TryPopulateMarkdownTemplateFromPrimaryConnectionAsync()
         {
-            if (Service == null)
+            if (primaryService == null)
             {
                 return;
             }
 
             try
             {
-                var markdownTemplate = await Task.Run(() => MarkdownUtilitiesService.BuildMarkdownTemplateFromPrimaryConnectionLanguages(Service));
+                var markdownTemplate = await Task.Run(() => MarkdownUtilitiesService.BuildMarkdownTemplateFromPrimaryConnectionLanguages(primaryService));
                 if (string.IsNullOrWhiteSpace(markdownTemplate))
                 {
                     return;

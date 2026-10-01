@@ -111,10 +111,10 @@ namespace DataModelDevOpsExtractor.Repository
                     }
                     entity[prefixEnv + "lookuptableid"] = resultsLookupTable.Entities.FirstOrDefault()?.ToEntityReference();
                 }
-                object reqLevelVal = null;
+                object reqLevelVal = RequirementLevelCode.None;
                 if (Enum.TryParse<RequirementLevelCode>(requiredLevel, true, out var requiredLevelEnum))
                     reqLevelVal = (int)requiredLevelEnum;
-                object usageVal = null;
+                object usageVal = UsageCode.IN_USE;
                 var normalizedUsage = NormalizeEnumToken(usage);
                 if (Enum.TryParse<UsageCode>(normalizedUsage, true, out var usageEnum))
                     usageVal = (int)usageEnum;
@@ -125,7 +125,7 @@ namespace DataModelDevOpsExtractor.Repository
                 entity[prefixEnv + "additionaldata"] = additionalData;
                 entity[prefixEnv + "displayname_it"] = displayNameIt;
                 entity[prefixEnv + "displayname_en"] = displayNameEn;
-                entity[prefixEnv + "requirementlevelcode"] = new OptionSetValue((int)reqLevelVal);
+                entity[prefixEnv + "requirementlevelcode"] = reqLevelVal == null ? new OptionSetValue((int)RequirementLevelCode.None) : new OptionSetValue((int)reqLevelVal);
                 entity[prefixEnv + "description"] = description;
                 entity[prefixEnv + "usagecode"] = usageVal == null? new OptionSetValue((int)UsageCode.IN_USE) : new OptionSetValue((int)usageVal);
                 

@@ -316,6 +316,7 @@
     <Compile Include="Service\DevOpsDataModelParser.cs" />
     <Compile Include="Service\DevOpsWorkItemFetcher.cs" />
     <Compile Include="Model\DevOpsConnectionString.cs" />
+    <Compile Include="Model\DevOpsWikiPageReference.cs" />
     <Compile Include="MyPlugin.cs" />
     <Compile Include="PluginControl.cs">
       <SubType>UserControl</SubType>

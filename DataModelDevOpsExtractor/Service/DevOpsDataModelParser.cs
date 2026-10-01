@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Text.RegularExpressions;
 
@@ -6,6 +7,16 @@ namespace DataModelDevOpsExtractor.Service
 {
     public static class DevOpsDataModelParser
     {
+        private static readonly HashSet<string> DataModelHeaders = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase)
+        {
+            "system",
+            "systemtable",
+            "table",
+            "schemaname",
+            "displaynameit",
+            "displaynameen"
+        };
+
         // Esempio di parsing di una sezione "Data Model - ..." da testo
         public static List<string[]> ParseDataModelSection(string text)
         {
@@ -15,41 +26,57 @@ namespace DataModelDevOpsExtractor.Service
                 return rows;
             }
 
-            // Trova il blocco <table ...>...</table>
-            var tableMatch = Regex.Match(text, @"<table[\s\S]*?</table>", RegexOptions.IgnoreCase);
-            if (!tableMatch.Success)
+            var tableMatches = Regex.Matches(text, @"<table\b[\s\S]*?</table>", RegexOptions.IgnoreCase);
+            if (tableMatches.Count == 0)
             {
                 return ParseMarkdownTable(text);
             }
 
-            var tableHtml = tableMatch.Value;
-
-            // Trova tutte le righe <tr>...</tr>
-            var rowMatches = Regex.Matches(tableHtml, @"<tr[\s\S]*?</tr>", RegexOptions.IgnoreCase);
-            foreach (Match rowMatch in rowMatches)
+            foreach (Match tableMatch in tableMatches)
             {
-                var rowHtml = rowMatch.Value;
-                if (Regex.IsMatch(rowHtml, @"<th\b", RegexOptions.IgnoreCase))
+                var tableRows = ParseHtmlTable(tableMatch.Value);
+                var headerIndex = tableRows.FindIndex(row => IsDataModelHeader(row.Cells));
+                if (headerIndex < 0)
                 {
                     continue;
                 }
 
-                // Trova tutte le celle <td>...</td>
-                var cellMatches = Regex.Matches(rowHtml, @"<td\b[^>]*>(.*?)</td>", RegexOptions.IgnoreCase);
+                for (var rowIndex = headerIndex + 1; rowIndex < tableRows.Count; rowIndex++)
+                {
+                    if (tableRows[rowIndex].Cells.Count > 0)
+                    {
+                        rows.Add(tableRows[rowIndex].Cells.ToArray());
+                    }
+                }
+            }
+
+            return rows;
+        }
+
+        private static List<HtmlTableRow> ParseHtmlTable(string tableHtml)
+        {
+            var rows = new List<HtmlTableRow>();
+            var rowMatches = Regex.Matches(tableHtml, @"<tr\b[^>]*>([\s\S]*?)</tr>", RegexOptions.IgnoreCase);
+            foreach (Match rowMatch in rowMatches)
+            {
+                var cellMatches = Regex.Matches(rowMatch.Groups[1].Value, @"<(th|td)\b[^>]*>([\s\S]*?)</\1>", RegexOptions.IgnoreCase);
                 var cells = new List<string>();
                 foreach (Match cell in cellMatches)
                 {
-                    // Rimuovi eventuali tag HTML interni e trimma
-                    var cellText = Regex.Replace(cell.Groups[1].Value, "<.*?>", string.Empty);
+                    var cellText = Regex.Replace(cell.Groups[2].Value, "<.*?>", string.Empty);
                     cellText = WebUtility.HtmlDecode(cellText ?? string.Empty);
                     cellText = Regex.Replace(cellText, "[\u00A0\u200B\u200C\u200D\uFEFF]", " ");
                     cellText = Regex.Replace(cellText, @"[^\p{L}\p{N}\s\-_/().,:;\[\]]", string.Empty);
                     cellText = Regex.Replace(cellText, @"\s+", " ").Trim();
                     cells.Add(cellText);
                 }
+
                 if (cells.Count > 0)
-                    rows.Add(cells.ToArray());
+                {
+                    rows.Add(new HtmlTableRow { Cells = cells });
+                }
             }
+
             return rows;
         }
 
@@ -65,19 +92,41 @@ namespace DataModelDevOpsExtractor.Service
                     continue;
                 }
 
-                if (lineIndex + 1 < lines.Length && IsMarkdownSeparatorRow(lines[lineIndex + 1], cells.Length))
+                if (lineIndex + 1 >= lines.Length || !IsMarkdownSeparatorRow(lines[lineIndex + 1], cells.Length))
                 {
-                    lineIndex++;
                     continue;
                 }
 
-                if (!IsMarkdownSeparatorRow(lines[lineIndex], cells.Length))
+                lineIndex++;
+                var isDataModelTable = IsDataModelHeader(cells);
+                for (var dataRowIndex = lineIndex + 1; dataRowIndex < lines.Length; dataRowIndex++)
                 {
-                    rows.Add(cells);
+                    if (!TryParseMarkdownRow(lines[dataRowIndex], out var dataCells) ||
+                        IsMarkdownSeparatorRow(lines[dataRowIndex], dataCells.Length))
+                    {
+                        break;
+                    }
+
+                    if (isDataModelTable)
+                    {
+                        rows.Add(dataCells);
+                    }
+
+                    lineIndex = dataRowIndex;
                 }
             }
 
             return rows;
+        }
+
+        private static bool IsDataModelHeader(IEnumerable<string> cells)
+        {
+            return cells.Any(cell => DataModelHeaders.Contains(NormalizeHeader(cell)));
+        }
+
+        private static string NormalizeHeader(string value)
+        {
+            return Regex.Replace((value ?? string.Empty).Trim().ToLowerInvariant(), @"[^a-z0-9]", string.Empty);
         }
 
         private static bool TryParseMarkdownRow(string line, out string[] cells)
@@ -113,6 +162,11 @@ namespace DataModelDevOpsExtractor.Service
             }
 
             return true;
+        }
+
+        private sealed class HtmlTableRow
+        {
+            public List<string> Cells { get; set; }
         }
     }
 }

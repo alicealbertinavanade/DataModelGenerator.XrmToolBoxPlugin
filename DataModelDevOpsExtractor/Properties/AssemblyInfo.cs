@@ -18,6 +18,7 @@ using System.Runtime.InteropServices;
 // to COM components.  If you need to access a type in this assembly from
 // COM, set the ComVisible attribute to true on that type.
 [assembly: ComVisible(false)]
+[assembly: InternalsVisibleTo("DataModelDevOpsExtractor.Tests")]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
 [assembly: Guid("89efb8a4-f61e-4746-ab4b-4d315d85524e")]

@@ -95,7 +95,7 @@
 			this.lblTaskIds.Name = "lblTaskIds";
 			this.lblTaskIds.Size = new System.Drawing.Size(185, 16);
 			this.lblTaskIds.TabIndex = 2;
-			this.lblTaskIds.Text = "Task IDs (comma separated):";
+			this.lblTaskIds.Text = "Task IDs or Wiki URL:";
 			// 
 			// lblPrefix
 			// 
@@ -144,7 +144,7 @@
 			this.buttonLoadMarkdown.Name = "buttonLoadMarkdown";
 			this.buttonLoadMarkdown.Size = new System.Drawing.Size(244, 28);
 			this.buttonLoadMarkdown.TabIndex = 10;
-			this.buttonLoadMarkdown.Text = "Load Markdown From Tasks";
+			this.buttonLoadMarkdown.Text = "Load Markdown From DevOps";
 			this.buttonLoadMarkdown.UseVisualStyleBackColor = true;
 			this.buttonLoadMarkdown.Click += new System.EventHandler(this.buttonLoadMarkdown_Click);
 			// 

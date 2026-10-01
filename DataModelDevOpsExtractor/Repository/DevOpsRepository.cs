@@ -13,7 +13,10 @@ using DataModelDevOpsExtractor.Model;
 using System.Windows;
 using Microsoft.VisualStudio.Services.WebApi.Patch;
 using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text.RegularExpressions;
+using Newtonsoft.Json.Linq;
 
 namespace DataModelDevOpsExtractor.Repository
 {
@@ -39,6 +42,43 @@ namespace DataModelDevOpsExtractor.Repository
 
                 // get work items for the ids found in query
                 return await httpClient.GetWorkItemsAsync(Ids, fields).ConfigureAwait(false);
+            }
+        }
+
+        public async Task<string> GetWikiPageContentAsync(DevOpsWikiPageReference pageReference)
+        {
+            if (pageReference == null)
+            {
+                throw new ArgumentNullException(nameof(pageReference));
+            }
+
+            var organizationUrl = parsedConnectionString.OrgUrl.ToString().TrimEnd('/');
+            var requestUrl = $"{organizationUrl}/{Uri.EscapeDataString(pageReference.Project)}/_apis/wiki/wikis/{Uri.EscapeDataString(pageReference.WikiIdentifier)}/pages/{pageReference.PageId}?includeContent=true&api-version=7.1";
+            var authorization = Convert.ToBase64String(Encoding.ASCII.GetBytes($":{parsedConnectionString.PersonalAccessToken}"));
+
+            using (var httpClient = new HttpClient())
+            using (var request = new HttpRequestMessage(HttpMethod.Get, requestUrl))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Basic", authorization);
+                request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                using (var response = await httpClient.SendAsync(request).ConfigureAwait(false))
+                {
+                    var responseBody = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        throw new InvalidOperationException(
+                            $"Lettura della pagina Wiki non riuscita ({(int)response.StatusCode} {response.ReasonPhrase}): {responseBody}");
+                    }
+
+                    var content = JObject.Parse(responseBody).Value<string>("content");
+                    if (content == null)
+                    {
+                        throw new InvalidOperationException("La risposta della Wiki non contiene il contenuto della pagina.");
+                    }
+
+                    return content;
+                }
             }
         }
 

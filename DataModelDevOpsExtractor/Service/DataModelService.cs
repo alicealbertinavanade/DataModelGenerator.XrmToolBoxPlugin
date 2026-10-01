@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using DataModelDevOpsExtractor.Model;
+using DataModelDevOpsExtractor.Repository;
 
 namespace DataModelDevOpsExtractor.Service
 {
@@ -26,30 +27,10 @@ namespace DataModelDevOpsExtractor.Service
                 return null;
             }
 
-            var ids = new List<int>();
-            foreach (var id in txtTaskIds)
-            {
-                if (int.TryParse(id.Trim(), out int num)) ids.Add(num);
-            }
-            if (ids.Count == 0)
-            {
-                MessageBox.Show("Nessun ID valido.");
-                return null;
-            }
-
-            var descriptions = await DevOpsWorkItemFetcher.FetchWorkItemDescriptionsAsync(connectionString, ids);
-
-            // Filtra solo i task con la struttura richiesta
-            var filteredDescriptions = descriptions.Where(desc => desc.Contains("System")).ToList();
-
-            if (filteredDescriptions.Count == 0)
-            {
-                MessageBox.Show("Nessun data model con la struttura richiesta trovato nei task.");
-                return null;
-            }
+            var descriptions = await FetchDataModelDescriptionsAsync(connectionString, txtTaskIds);
 
             // Estrai le righe del data model da ogni descrizione filtrata
-            foreach (var desc in filteredDescriptions)
+            foreach (var desc in descriptions)
             {
                 var rows = DevOpsDataModelParser.ParseDataModelSection(desc);
                 allRows.AddRange(rows);
@@ -71,27 +52,14 @@ namespace DataModelDevOpsExtractor.Service
                 return null;
             }
 
-            var ids = new List<int>();
-            foreach (var id in txtTaskIds)
+            var descriptions = await FetchDataModelDescriptionsAsync(connectionString, txtTaskIds);
+            if (descriptions.Count == 0)
             {
-                if (int.TryParse(id.Trim(), out int num)) ids.Add(num);
-            }
-            if (ids.Count == 0)
-            {
-                MessageBox.Show("Nessun ID valido.");
+                MessageBox.Show("Nessun data model trovato nei task o nella pagina Wiki indicata.");
                 return null;
             }
 
-            var descriptions = await DevOpsWorkItemFetcher.FetchWorkItemDescriptionsAsync(connectionString, ids);
-            var filteredDescriptions = descriptions.Where(desc => desc.Contains("System")).ToList();
-
-            if (filteredDescriptions.Count == 0)
-            {
-                MessageBox.Show("Nessun data model con la struttura richiesta trovato nei task.");
-                return null;
-            }
-
-            foreach (var desc in filteredDescriptions)
+            foreach (var desc in descriptions)
             {
                 var rows = DevOpsDataModelParser.ParseDataModelSection(desc);
                 if (rows == null || rows.Count == 0)
@@ -99,26 +67,7 @@ namespace DataModelDevOpsExtractor.Service
                     continue;
                 }
 
-                var tableName = rows.Select(r => r.ElementAtOrDefault(1)).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
-                var tableLabelEn = ExtractTaskName(desc, tableName, prefix, "EN");
-                var tableLabelIt = ExtractTaskName(desc, tableName, prefix, "IT");
-                var fallbackLabel = BuildLabelFromTableName(tableName, prefix);
-
-                if (string.IsNullOrWhiteSpace(tableLabelEn))
-                    tableLabelEn = fallbackLabel;
-                if (string.IsNullOrWhiteSpace(tableLabelIt))
-                    tableLabelIt = fallbackLabel;
-
-                foreach (var row in rows)
-                {
-                    result.Add(new DataModelTaskRow
-                    {
-                        Row = row,
-                        TableDisplayNameEn = tableLabelEn,
-                        TableDisplayNameIt = tableLabelIt,
-                        TableName = tableName
-                    });
-                }
+                result.AddRange(BuildTaskRowsForTables(desc, rows, prefix));
             }
 
             if (result.Count == 0)
@@ -136,10 +85,59 @@ namespace DataModelDevOpsExtractor.Service
             if (taskRows == null || taskRows.Count == 0)
                 return null;
 
+            return BuildMarkdownFromTaskRows(taskRows);
+        }
+
+        internal static List<DataModelTaskRow> BuildTaskRowsForTables(string description, IList<string[]> rows, string prefix)
+        {
+            var result = new List<DataModelTaskRow>();
+            if (rows == null || rows.Count == 0)
+            {
+                return result;
+            }
+
+            var declaredTableMatch = Regex.Match(description ?? string.Empty, @"^\s*##\s*Table\s*:\s*(.+)$", RegexOptions.Multiline | RegexOptions.IgnoreCase);
+            var declaredTableName = declaredTableMatch.Success ? declaredTableMatch.Groups[1].Value.Trim() : null;
+            var primaryTableName = !string.IsNullOrWhiteSpace(declaredTableName)
+                ? declaredTableName
+                : rows.Select(row => row?.ElementAtOrDefault(1)).FirstOrDefault(name => !string.IsNullOrWhiteSpace(name))?.Trim();
+
+            var primaryLabelEn = ExtractTaskName(description, primaryTableName, prefix, "EN");
+            var primaryLabelIt = ExtractTaskName(description, primaryTableName, prefix, "IT");
+            var primaryFallback = BuildLabelFromTableName(primaryTableName, prefix);
+            if (string.IsNullOrWhiteSpace(primaryLabelEn))
+                primaryLabelEn = primaryFallback;
+            if (string.IsNullOrWhiteSpace(primaryLabelIt))
+                primaryLabelIt = primaryFallback;
+
+            foreach (var row in rows)
+            {
+                var tableName = row?.ElementAtOrDefault(1)?.Trim();
+                if (string.IsNullOrWhiteSpace(tableName))
+                {
+                    continue;
+                }
+
+                var isPrimaryTable = string.Equals(tableName, primaryTableName, StringComparison.OrdinalIgnoreCase);
+                var fallbackLabel = BuildLabelFromTableName(tableName, prefix);
+                result.Add(new DataModelTaskRow
+                {
+                    Row = row,
+                    TableName = tableName,
+                    TableDisplayNameEn = isPrimaryTable && !string.IsNullOrWhiteSpace(primaryLabelEn) ? primaryLabelEn : fallbackLabel,
+                    TableDisplayNameIt = isPrimaryTable && !string.IsNullOrWhiteSpace(primaryLabelIt) ? primaryLabelIt : fallbackLabel
+                });
+            }
+
+            return result;
+        }
+
+        internal static string BuildMarkdownFromTaskRows(IEnumerable<DataModelTaskRow> taskRows)
+        {
             var sb = new StringBuilder();
-            var grouped = taskRows
+            var grouped = (taskRows ?? Enumerable.Empty<DataModelTaskRow>())
                 .Where(r => !string.IsNullOrWhiteSpace(r.TableName))
-                .GroupBy(r => r.TableName);
+                .GroupBy(r => r.TableName, StringComparer.OrdinalIgnoreCase);
 
             foreach (var group in grouped)
             {
@@ -167,6 +165,42 @@ namespace DataModelDevOpsExtractor.Service
             }
 
             return sb.ToString().Trim();
+        }
+
+        private static async Task<List<string>> FetchDataModelDescriptionsAsync(string connectionString, string[] sourceInput)
+        {
+            var values = (sourceInput ?? new string[0])
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value.Trim())
+                .ToArray();
+
+            if (values.Length == 1 && Uri.TryCreate(values[0], UriKind.Absolute, out var uri) &&
+                (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            {
+                if (!DevOpsWikiPageReference.TryParse(values[0], out var wikiPage))
+                {
+                    throw new ArgumentException("URL Wiki non riconosciuto. Incolla il link completo a una pagina Wiki Azure DevOps.");
+                }
+
+                var repository = new DevOpsRepository(connectionString);
+                return new List<string> { await repository.GetWikiPageContentAsync(wikiPage).ConfigureAwait(false) };
+            }
+
+            var ids = values
+                .Select(value => int.TryParse(value, out var id) ? (int?)id : null)
+                .Where(id => id.HasValue)
+                .Select(id => id.Value)
+                .ToArray();
+
+            if (ids.Length == 0)
+            {
+                return new List<string>();
+            }
+
+            var descriptions = await DevOpsWorkItemFetcher.FetchWorkItemDescriptionsAsync(connectionString, ids).ConfigureAwait(false);
+            return descriptions
+                .Where(description => DevOpsDataModelParser.ParseDataModelSection(description).Count > 0)
+                .ToList();
         }
 
         public List<DataModelTaskRow> ParseDataModelMarkdown(string markdown, string prefix)
